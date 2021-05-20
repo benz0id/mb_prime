@@ -41,11 +41,11 @@ class HeteroGen:
         if presenter is None:
             self._presenter = ConsolePresenter()
 
-        self._max_spacer_length = max_spacer_length + 1
+        self._max_spacer_length = max_spacer_length
         self._num_hetero = num_hetero
 
     def _generate_hetero_seq(self, primer: Seq, vary_len: int,
-                            num_sets: int) -> Tuple[Seq]:
+                             num_sets: int) -> Tuple[Seq]:
         """Generates heterogeneity sequences given a <primer> sequence.
         Ensures nucleotide diversity among the first <vary_len> bases in the
         sequence. Returns a list of <num_sets> tuples, each containing 4
@@ -69,7 +69,8 @@ class HeteroGen:
                                     spacer_combo_list=valid_spacer_combos)
         return valid_spacer_combos
 
-    def _build_spacer_tree(self, seq: Seq, spacers: List[int], target_depth: int,
+    def _build_spacer_tree(self, seq: Seq, spacers: List[int],
+                           target_depth: int,
                            depth: int = 0,
                            spacer_combo_list: List[Tuple[int]] = None) -> Node:
         """Produces a tree of valid combinations of spacer lengths, returns
@@ -137,7 +138,7 @@ class HeteroGen:
 
         # Iterate though all possible spacers - add to valid spacers if it is
         # compatible
-        for i in range(start_point, self._max_spacer_length):
+        for i in range(start_point, self._max_spacer_length + 1):
             if self._is_compatible_spacer(seq, seqs_spacers, i):
                 valid_spacers.append(i)
 
@@ -153,18 +154,19 @@ class HeteroGen:
             spacer_tup = spacers[i]
             to_print += 'Spacer #' + str(i) + ' ' + str(spacer_tup) + '\n'
 
-            for j in range(0, min(self._num_hetero, 11)):
+            for j in range(1, min(self._num_hetero, 11)):
                 to_print += str(j) + ' '
             to_print += '\n'
 
             for j in range(0, 4):
                 spacer = spacer_tup[j]
 
-                to_print += ''.join(['+ ' * spacer,
-                                     ' '.join(
-                                         str(seq[0:self._num_hetero - spacer])),
-                                     ' ',
-                                     ''.join(
+                to_print += '+ ' * spacer
+                if spacer != self._max_spacer_length:
+                    to_print += ' '.join(
+                        str(seq[0:self._num_hetero - spacer])) + ' '
+
+                to_print += ''.join([''.join(
                                          str(seq[self._num_hetero - spacer:])),
                                      '\n'])
 
