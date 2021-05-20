@@ -12,7 +12,8 @@ class Presenter(ABC):
         """Displays the text in some manner"""
         pass
 
-class ConsolerPresenter(Presenter):
+
+class ConsolePresenter(Presenter):
     """A simple presenter designed to display text to the console."""
 
     # override
@@ -20,4 +21,3 @@ class ConsolerPresenter(Presenter):
         """Displays text to the console."""
         print(txt)
         return None
-
