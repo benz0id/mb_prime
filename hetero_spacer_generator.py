@@ -1,25 +1,7 @@
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 from Bio.Seq import Seq
 
-from presenters.presenters import Presenter, ConsolePresenter
-
-
-class Node:
-    """A simple class used in constructing trees of integers.
-    === Public Attributes ===
-    val:
-        The integer value contained by this node.
-    nexts:
-        A list of nodes pointed to.
-    """
-
-    val: int
-
-    def __init__(self) -> None:
-        """Sets attributes to default values"""
-        self.val = -1
-        self.next_list = []
-        self.parent = None
+from presenters import Presenter, ConsolePresenter
 
 
 class HeteroGen:
@@ -65,63 +47,33 @@ class HeteroGen:
         for i in range(0, self._num_hetero):
             # Seeding with a single spacer length
             spacers = [i]
-            self._build_spacer_tree(seq, spacers, 4,
-                                    spacer_combo_list=valid_spacer_combos)
+            self._get_all_compatible_spacers(seq, spacers, 4,
+                                             spacer_combo_list=valid_spacer_combos)
         return valid_spacer_combos
 
-    def _build_spacer_tree(self, seq: Seq, spacers: List[int],
-                           target_depth: int,
-                           depth: int = 0,
-                           spacer_combo_list: List[Tuple[int]] = None) -> Node:
+    def _get_all_compatible_spacers(self, seq: Seq, spacers: List[int],
+                                    target_depth: int,
+                                    depth: int = 0,
+                                    spacer_combo_list: List[Tuple[int]] = None) -> None:
         """Produces a tree of valid combinations of spacer lengths, returns
         the first node in this tree. If a depth of <target_depth> cannot be
         reached, returns a node with node.val -1. If <spacer_combo_list> is
         specified then all valid combinations of spacers will be appended to
         it. """
 
-        # TODO remove nodes
-
-        node = Node()
-
         if depth == target_depth - 1:
-            node.val = spacers[-1]
             if spacer_combo_list is not None:
                 spacer_combo_list.append(tuple(spacers))
-            return node
+            return None
 
         for spacer in self._get_compatible_spacers(seq, spacers):
             # The set of spacers to be tested for heterogeneity across
             # self.num_hetero
             trial_spacers = spacers.copy()
             trial_spacers.append(spacer)
-            nxt = self._build_spacer_tree(seq, trial_spacers,
-                                          target_depth,
-                                          depth + 1, spacer_combo_list)
-            if nxt.val > 0:
-                node.next_list.append(nxt)
-
-        if len(node.next_list) > 0:
-            node.val = spacers[-1]
-        return node
-
-    def _is_compatible_spacer(self, seq: Seq, spacers: List[int],
-                              spacer: int, ) -> bool:
-        """Returns whether <seq> shifted by <spacer> has any matching bases
-        in the same position as any sequence in <seqs> - each shifted by their
-        respective spacers.
-
-        Preconditions: Every item in spacers is less than spacer.
-        """
-        # Checking for uniqueness at all bases
-        for i in range(0, self._num_hetero - spacer):
-
-            # Checking each of the seqs for matching bases.
-            for j in range(0, len(spacers)):
-                ind = i + spacer - spacers[j]  # TODO REMOVE
-                if seq[ind] == seq[i]:
-                    return False
-
-        return True
+            self._get_all_compatible_spacers(seq, trial_spacers, target_depth,
+                                             depth + 1, spacer_combo_list)
+        return None
 
     def _get_compatible_spacers(self, seq: Seq,
                                 seqs_spacers: List[int]) -> Tuple[int]:
@@ -143,6 +95,24 @@ class HeteroGen:
                 valid_spacers.append(i)
 
         return tuple(valid_spacers)
+
+    def _is_compatible_spacer(self, seq: Seq, spacers: List[int],
+                              spacer: int, ) -> bool:
+        """Returns whether <seq> shifted by <spacer> has any matching bases
+        in the same position as any sequence in <seqs> - each shifted by their
+        respective spacers.
+
+        Preconditions: Every item in spacers is less than spacer.
+        """
+        # Checking for uniqueness at all bases
+        for i in range(0, self._num_hetero - spacer):
+
+            # Checking each of the seqs for matching bases.
+            for j in range(0, len(spacers)):
+                if seq[i + spacer - spacers[j]] == seq[i]:
+                    return False
+
+        return True
 
     def visualise_spacer_combos(self, spacers: List[Tuple[int]],
                                 seq: Seq) -> None:
@@ -167,9 +137,15 @@ class HeteroGen:
                         str(seq[0:self._num_hetero - spacer])) + ' '
 
                 to_print += ''.join([''.join(
-                                         str(seq[self._num_hetero - spacer:])),
-                                     '\n'])
+                    str(seq[self._num_hetero - spacer:])),
+                    '\n'])
 
             to_print += '\n'
 
         self._presenter.print(to_print)
+
+
+
+
+
+

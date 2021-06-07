@@ -1,6 +1,4 @@
-from time import sleep
-
-from heterogeneity_spacers.hetero_spacer_generator import HeteroGen
+from hetero_spacer_generator import HeteroGen
 from Bio.Seq import Seq
 
 valid_input = False
