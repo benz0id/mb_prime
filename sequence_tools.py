@@ -10,7 +10,6 @@ def get_max_complementarity(oligo: Seq, seqs: List[Seq]) -> int:
      4"""
     max_comp = 0
     oligo_len = len(oligo)
-
     for seq in seqs:
         # Each possible alignment along seq
         seq_len = len(seq)
