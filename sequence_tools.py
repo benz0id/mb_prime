@@ -1,10 +1,11 @@
 from Bio.Seq import Seq
-from typing import List
+from typing import List, Dict
 
 
 def get_max_complementarity(oligo: Seq, seqs: List[Seq]) -> int:
     """Returns the highest number of complimentary bases between <oligo> at any
-    possible alignment on any of seqs.
+    possible alignment on any of <seqs>, while <oligo> and <seqs> are still
+    fully overlapped.
 
     >>> get_max_complementarity(Seq("ATCGA"), [Seq("ATTCAGACC")])
      4"""
