@@ -4,6 +4,13 @@ from primer_tools import MBPrimer, MBPrimerBuilder
 from presenters import Presenter, ConsolePresenter
 import random
 
+NUM_SPACERS = 4
+# The default maximum length of any spacer created
+MAX_SPACER_LENGTH = 12
+# The default size of the heterogeneity region to proceed the binding region of
+# the primer
+NUM_HETERO = 12
+
 
 class HeteroGen:
     """Manages the the creation of heterogeneity spacers.
@@ -17,14 +24,16 @@ class HeteroGen:
     _max_spacer_length: int
     _num_hetero: int
     _presenter: Presenter
+    _num_spacers: int
 
-    def __init__(self, max_spacer_length: int = 12, num_hetero: int = 12,
+    def __init__(self, max_spacer_length: int = MAX_SPACER_LENGTH, num_hetero: int = 12,
                  presenter: Presenter = ConsolePresenter()) -> None:
         """Initialises the attributes to the values specified."""
         self._presenter = presenter
 
         self._max_spacer_length = max_spacer_length
         self._num_hetero = num_hetero
+        self._num_spacers = NUM_SPACERS
 
     def _generate_hetero_seq(self, primer: Seq, vary_len: int,
                              num_sets: int) -> Tuple[Seq]:
@@ -38,7 +47,7 @@ class HeteroGen:
 
     # Begin methods related to generating spacer region alignments
 
-    def get_all_spacer_combos(self, seq: Seq) -> List[Tuple[int]]:
+    def get_all_spacer_combos(self, seq: Seq) -> List[Tuple[int, int, int, int]]:
         """Given a <seq>, will provide a set of alignments of that sequence (
         produced by shifting it to the right) that ensures nucleotide
         diversity across the first <self.num_hetero> bases. Returns a list of
@@ -49,7 +58,7 @@ class HeteroGen:
         for i in range(0, self._num_hetero):
             # Seeding with a single spacer length
             spacers = [i]
-            self._get_all_compatible_spacers(seq, spacers, 4,
+            self._get_all_compatible_spacers(seq, spacers, self._num_spacers,
                                              spacer_combo_list=valid_spacer_combos)
         return valid_spacer_combos
 
@@ -57,7 +66,7 @@ class HeteroGen:
                                     target_depth: int,
                                     depth: int = 0,
                                     spacer_combo_list: List[
-                                        Tuple[int]] = None) -> None:
+                                        Tuple[int, int, int, int]] = None) -> None:
         """Produces a tree of valid combinations of spacer lengths, returns
         the first node in this tree. If a depth of <target_depth> cannot be
         reached, returns a node with node.val -1. If <spacer_combo_list> is
@@ -79,7 +88,7 @@ class HeteroGen:
         return None
 
     def _get_compatible_spacers(self, seq: Seq,
-                                seqs_spacers: List[int]) -> Tuple[int]:
+                                seqs_spacers: List[int]) -> Tuple[int, ...]:
         """Returns a tuple containing all spacers < <self.num_hetero> such
         that for all j + spacer < <self.num_hetero>, seq[j + spacer] != any
         seqs[i][j]. Returns an empty tuple if no such spacers exist. TODO
@@ -117,7 +126,31 @@ class HeteroGen:
 
         return True
 
-    def visualise_spacer_combos(self, spacers: List[Tuple[int]],
+    def visualise_seq_arr(self, seq_arrs: List[List[List[str or Seq]]]) -> None:
+        """Displays a visual representation of a given <seq_arrs>.
+
+        Precondition: For all valid i, j, and k,
+        len(<seq_arr>[i][j][k]) > self._num_hetero"""
+        to_print = ''
+
+        for i in range(len(seq_arrs)):
+            to_print += ''.join(["Sequence array #", str(i), '\n'])
+
+            for j in range(1, min(self._num_hetero, 11)):
+                to_print += str(j) + ' '
+            to_print += '\n'
+
+            # Add spaces between the bases in the heterogeneity region
+            for j in range(self._num_spacers):
+                to_print += ' '.join(seq_arrs[i][j][0:self._num_hetero]) + ' '
+                to_print += ''.join(seq_arrs[i][j][self._num_hetero:]) + '\n'
+
+            to_print += '\n'
+
+        self._presenter.print(to_print)
+
+
+    def visualise_spacer_combos(self, spacers: List[Tuple[int, int, int, int]],
                                 seq: Seq) -> None:
         """Displays a visual representation of all of the <spacers> for the
         given <seq>. Assumes a set of 4 spacers per tuple."""
@@ -131,7 +164,7 @@ class HeteroGen:
                 to_print += str(j) + ' '
             to_print += '\n'
 
-            for j in range(0, 4):
+            for j in range(0, self._num_spacers):
                 spacer = spacer_tup[j]
 
                 to_print += '+ ' * spacer
@@ -153,13 +186,13 @@ class HeteroGen:
 
     def gen_hetero_seqs(self, incomplete_forward_primer: MBPrimerBuilder,
                         incomplete_reverse_primer: MBPrimerBuilder,
-                        spacers: Tuple[int], max_GC: int) -> \
+                        spacers: Tuple[int, int, int, int], max_GC: int) -> \
             List[Tuple[MBPrimer]]:
 
         pass
 
     def _gen_sequence_array(self, binding_seq: Seq,
-                            spacers: Tuple[int]) -> List[List[str]]:
+                            spacers: Tuple[int, int, int, int]) -> List[List[str]]:
         """Returns a representation of the <spacers> and <binding_seq>.
 
         >>> HeteroGen._gen_sequence_array(Seq('ATCG'), (0, 1, 2, 3))
@@ -169,18 +202,22 @@ class HeteroGen:
             ['',  '',  '', 'A']]"""
         sequence_array = []  # [row][column]
         for i in range(len(spacers)):
-            sequence_array[i] = []
+            sequence_array.append([])
             # Fill hetero spacer region with empty slots
             for _ in range(spacers[i]):
                 sequence_array[i].append('')  # Indicates an empty slot
 
             # Occupy remaining region (plus an extra base) with primer
             # Third spacer is always the largest.
-            for j in range(0, len(sequence_array[i]) - spacers[3] + 1):
-                sequence_array[i].append(binding_seq[j])
+            for j in range(0, self._num_hetero - spacers[i] + 1):
+                if j < len(binding_seq):
+                    sequence_array[i].append(binding_seq[j])
+                else:
+                    sequence_array[i].append('-')
+
         return sequence_array
 
-    def get_vacant_bases(self, sequence_array: List[List[str]]) -> List[
+    def get_vacant_bases(self, spacers: Tuple[int, int, int, int]) -> List[
         List[int]]:
         """Returns a List containing a List of indices of unfilled bases in
         <sequence_array>.
@@ -191,12 +228,13 @@ class HeteroGen:
         >>> HeteroGen.get_vacant_bases(seq_arr)
          [[1, 2, 3], [2, 3], [3], []]"""
         unfilled_bases = []
-        for i in range(len(sequence_array[1])):
-            unfilled_bases.append(0)
-            for j in range(4):
-                unfilled_bases[i] = []
-                if sequence_array[j][i] == '':
-                    unfilled_bases[i].append(j)
+        for i in range(self._num_hetero + 1):
+            unfilled_bases.append([])
+
+        for i in range(self._num_spacers):
+            for j in range(spacers[i]):
+                unfilled_bases[j].append(i)
+
         return unfilled_bases
 
     def get_potential_bases(self, sequence_array: List[List[str]],
@@ -212,30 +250,58 @@ class HeteroGen:
          >>> HeteroGen.get_potential_bases(seq_arr, 2)
          ['G']"""
         possible_bases = ['A', 'T', 'C', 'G']
-        for i in range(4):
-            if sequence_array[column][i]:
-                possible_bases.remove(sequence_array[column][i])
+        for i in range(self._num_spacers):
+            if sequence_array[i][column]:
+                possible_bases.remove(sequence_array[i][column])
         return possible_bases
 
-    def gen_heterogeneity_spacers(self, binding_seq: Seq,
-                                  spacers: Tuple[int]) -> List[Seq]:
+    def select_and_set(self, potential_bases: List[str],
+                       unfilled_bases: List[List[int]],
+                       column: int, sequence_array: List[List[str]]) -> None:
+        """Selects a random base from <potential_bases> and places it in a
+        random base position in <sequence_array>[base position][<column>]
+        specified in <unfilled_bases>[<column>]. Removes the selected base from
+        potential bases."""
+        specific_potential_bases = potential_bases.copy()
+        base_index = random.choice(unfilled_bases[column])
+
+        # Avoid repeating the last base in the sequence if possible
+        previous_base = sequence_array[base_index][column + 1]
+        if len(specific_potential_bases) > 1 and \
+                previous_base in specific_potential_bases:
+            specific_potential_bases.remove(previous_base)
+
+        selected_base = random.choice(specific_potential_bases)
+        sequence_array[base_index][column] = selected_base
+        unfilled_bases[column].remove(base_index)
+        potential_bases.remove(selected_base)
+
+    def gen_heterogeneity_spacers_rand(self, binding_seq: Seq,
+                                  spacers: Tuple[int, int, int, int]) -> List[Seq]:
+        """Returns a list of randomly generated valid heterogeneity spacers.
+        When possible, avoids base repeats on same strand."""
 
         sequence_array = self._gen_sequence_array(binding_seq, spacers)
-        unfilled_bases = self.get_vacant_bases(sequence_array)
+        unfilled_bases = self.get_vacant_bases(spacers)
 
         # Iterate through each column in reverse.
-        for i in range(len(unfilled_bases), -1, -1):
-            potential_bases = self.get_potential_bases(sequence_array, i)
+        for column in range(len(unfilled_bases) - 2, -1, -1):
+            potential_bases = self.get_potential_bases(sequence_array, column)
             # Randomly fill one of the unspecified bases
-            while unfilled_bases[i]:
-                specific_potential_bases = potential_bases.copy()
-                base_index = random.choice(unfilled_bases[i])
+            while unfilled_bases[column]:
+                self.select_and_set(potential_bases, unfilled_bases, column,
+                                    sequence_array)
 
-                # Avoid repeating the last base in the sequence if possible
-                previous_base = sequence_array[i + 1][base_index]
-                if len(specific_potential_bases) > 1 and \
-                        previous_base in specific_potential_bases:
-                    specific_potential_bases.remove(previous_base)
+        # Extract newly generated heterogeneity spacers from the sequence array.
+        final_spacers = []
+        for i in range(self._num_spacers):
+            spacer = Seq(str.join('', sequence_array[i][0:spacers[i]]))
+            final_spacers.append(spacer)
 
-                selected_base = random.choice(specific_potential_bases)
+        return final_spacers
+
+
+
+
+
 
