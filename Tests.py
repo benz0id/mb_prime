@@ -62,6 +62,17 @@ class TestSequenceTools:
         assert get_site_complementarity(seqs[1], seqs[0], 1) == 2
 
 
+def test_co_sort() -> None:
+    ls = [1, 2, 3, 4, 5, 6, 7]
+    lst = [2, 7, 1, 3, 5, 6, 4]
+    lst1 = [2, 7, 1, 3, 5, 6, 4]
+    lstc = lst[:]
+    lstc1 = lst1[:]
+
+    co_sort(lstc, lstc1)
+    assert lstc == ls and lstc1 == ls
+
+
 class TestRandomBaseSelection:
     """Test suite for methods that aid in the creation of random heterogeneity
     spacers"""
@@ -76,29 +87,29 @@ class TestRandomBaseSelection:
 
     def test_gen_sequence_array(self) -> None:
 
-        assert self.hg._gen_sequence_array(Seq('ATCG'), (0, 1, 2, 3)) \
+        assert self.hg._primer_gen._gen_sequence_array(Seq('ATCG'), (0, 1, 2, 3)) \
                == self.simple_seq_arr
 
         for _ in range(self.random_tests_to_run):
             seq = gen_random_seq(12)
-            spacers = self.hg1.get_all_spacer_combos(seq)
+            spacers = self.hg1._alignment_gen.get_all_spacer_combos(seq)
             for spacer in spacers:
-                self.hg1._gen_sequence_array(seq, spacer)
+                self.hg1._primer_gen._gen_sequence_array(seq, spacer)
 
     def test_get_vacant_bases(self) -> None:
-        assert self.hg.get_vacant_bases((0, 1, 2, 3)) == [[1, 2, 3], [2, 3],
-                                                          [3], []]
+        assert self.hg._primer_gen._get_vacant_bases((0, 1, 2, 3)) == [[1, 2, 3], [2, 3],
+                                                                       [3], []]
 
         for _ in range(self.random_tests_to_run):
             seq = gen_random_seq(12)
-            spacers = self.hg1.get_all_spacer_combos(seq)
+            spacers = self.hg1._alignment_gen.get_all_spacer_combos(seq)
             for spacer in spacers:
-                self.hg1.get_vacant_bases(spacer)
+                self.hg1._primer_gen._get_vacant_bases(spacer)
 
     def test_get_potential_bases(self):
 
         for i in range(4):
-            pbs = self.hg.get_potential_bases(self.simple_seq_arr, i)
+            pbs = self.hg._primer_gen._get_potential_bases(self.simple_seq_arr, i)
             for j in range(4):
                 assert self.simple_seq_arr[j][i] not in pbs
 
@@ -109,8 +120,8 @@ class TestRandomBaseSelection:
         column = 0
         seq_arr = self.simple_seq_arr.copy()
         for i in range(3):
-            self.hg.select_and_set(potential_bases, unfilled_bases,
-                                   column, seq_arr)
+            self.hg._primer_gen._select_and_set(potential_bases, unfilled_bases,
+                                                column, seq_arr)
             assert len(potential_bases) == 2 - i
             assert len(unfilled_bases[0]) == 2 - i
             for row in range(1, 4):
@@ -118,18 +129,18 @@ class TestRandomBaseSelection:
 
     def test_gen_heterogeneity_spacer_rand(self):
         seq = gen_random_seq(12)
-        spacer_combos = self.hg1.get_all_spacer_combos(seq)
+        spacer_combos = self.hg1._alignment_gen.get_all_spacer_combos(seq)
         if not spacer_combos:
             self.test_gen_heterogeneity_spacer_rand()
             return
         for spacer_lengths in spacer_combos:
-            spacers = self.hg1.gen_heterogeneity_spacers_rand(seq,
-                                                              spacer_lengths)
-            seq_arr = self.hg1._gen_sequence_array(seq, spacer_lengths)
+            spacers = self.hg1._primer_gen._gen_heterogeneity_spacers_rand(seq,
+                                                                           spacer_lengths)
+            seq_arr = self.hg1._primer_gen._gen_sequence_array(seq,
+                                                               spacer_lengths)
             for i in range(4):
                 for j in range(len(spacers[i])):
                     seq_arr[i][j] = spacers[i][j]
-            self.hg1.visualise_seq_arr([seq_arr])
             assert ensure_hetero_seq_arr(seq_arr, 12)
 
 

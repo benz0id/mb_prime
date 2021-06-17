@@ -1,6 +1,6 @@
 from hetero_spacer_generator import HeteroGen
 from Bio.Seq import Seq
-
+""" === Depreciated ===
 valid_input = False
 inpt = ''
 while not valid_input:
@@ -95,4 +95,4 @@ while True:
     if inpt == "View" or inpt == "view":
         print("\"+\" denotes a base within the spacer region.")
         hg.visualise_spacer_combos(spacer_combos, seq)
-
+"""
