@@ -1,6 +1,8 @@
 from primer_tools import MBPrimerBuilder
 from typing import List, Union, Tuple
 from defaults import ABSOLUTE_MAX_NUM_HETERO, ABSOLUTE_MAX_SPACER_LENGTH
+from presenters import Presenter
+from time import sleep
 
 STR = 'str'
 RANGE = 'ran'
@@ -52,17 +54,17 @@ def get_incomplete_primer() -> MBPrimerBuilder:
     inpt = while_not_valid(
         "Enter the adapter region of your primer (5' - 3'): ",
         "Bad input, please ensure your entry is a valid sequence:", DNA)
-    primer.set_adapter_seq(inpt)
+    primer.set_adapter_seq(inpt.upper())
 
     inpt = while_not_valid(
         "Enter the indexing region of your primer (5' - 3'): ",
         "Bad input, please ensure your entry is a valid sequence:", DNA)
-    primer.set_index_seq(inpt)
+    primer.set_index_seq(inpt.upper())
 
     inpt = while_not_valid(
         "Enter the binding region of your primer (5' - 3'): ",
         "Bad input, please ensure your entry is a valid sequence:", DNA)
-    primer.set_binding_seq(inpt)
+    primer.set_binding_seq(inpt.upper())
 
     return primer
 
@@ -82,3 +84,11 @@ def get_params() -> Tuple[int, int]:
         RANGE, start=0, end=ABSOLUTE_MAX_NUM_HETERO)
 
     return int(spacer_length), int(num_hetero)
+
+
+def print_dots(delay: int) -> None:
+    """Prints a dot every <delay> seconds."""
+    while True:
+        sleep(delay)
+        print('.', end='')
+

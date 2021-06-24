@@ -10,13 +10,13 @@ from defaults import NUM_SPACERS, MAX_SPACER_LENGTH, NUM_HETERO, \
     NUMBER_TO_CROSS_COMPARE, INITIAL_PRIMER_SET_SIZE
 
 
-
-
 class SpacerAlignmentGen:
 
     def __init__(self, max_spacer_length: int, num_hetero: int,
-                 presenter: Presenter) -> None:
-        """Initialises the attributes to the values specified."""
+                 presenter: Presenter = ConsolePresenter()) -> None:
+        """Initialises the attributes to the values specified.
+        Precondition:
+            max_spacer_length >= num_hetero"""
         self._presenter = presenter
         self._max_spacer_length = max_spacer_length
         self._num_hetero = num_hetero
@@ -74,7 +74,7 @@ class SpacerAlignmentGen:
         valid_spacers = []
         # Assume that there exist no valid spacers less than the greatest
         # already used
-        start_point = seqs_spacers[-1] + 1
+        start_point = seqs_spacers[-1]
 
         # Iterate though all possible spacers - add to valid spacers if it is
         # compatible
@@ -226,7 +226,8 @@ class RandomSpacerGen(HeteroSpacerGen):
     _criteria: List[Callable[[List[Tuple[Seq]], MBPrimerBuilder, int], None]]
 
     def __init__(self, max_spacer_length: int, num_hetero: int,
-                 presenter: Presenter, rigour: int = 1) -> None:
+                 presenter: Presenter = ConsolePresenter(),
+                 rigour: int = 1) -> None:
         """Initialises the attributes to the values specified. Sets the sampling
         size attributes (self._random_per_align & elf._number_to_cross_compare)
         in accordance with the rigour.
@@ -332,7 +333,9 @@ class RandomSpacerGen(HeteroSpacerGen):
                             percent_to_keep: float) -> None:
         """Removes all but <percent_to_keep>% of elements in
         <forward_spacer_seqs> and <reverse_spacer_seqs>. Removes elements based
-        on a set of criteria methods in <self.criteria>."""
+        on a set of criteria methods in <self.criteria>.
+        Note:
+            Rounds percentage down, so may return less spacers than expected."""
         # Calculate the amounts by which to decrement the number of spacers each
         # time
         org_len = len(forward_spacer_seqs)
@@ -352,7 +355,7 @@ class RandomSpacerGen(HeteroSpacerGen):
                                   num_to_keep: int) -> None:
         """Removes the spacers from <spacers> with the highest self
         complementarity with <incomplete_primer>. Retains the <num_to_keep>
-        spacers with the lowest self complementarity."""
+        spacers with the lowest self complementarity"""
         # Map complementarity of spacers to their index in <spacers>.
         complementarity_to_index = {}
         for i in range(len(spacers)):
@@ -413,7 +416,7 @@ class RandomSpacerGen(HeteroSpacerGen):
          ['G']"""
         possible_bases = ['A', 'T', 'C', 'G']
         for i in range(self._num_spacers):
-            if sequence_array[i][column]:
+            if sequence_array[i][column].isalnum():
                 possible_bases.remove(sequence_array[i][column])
         return possible_bases
 

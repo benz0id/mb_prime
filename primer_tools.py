@@ -253,7 +253,7 @@ class PrimerSet:
                                        str(primer.get_binding_seq())])
             str_rep += '\n'
         str_rep += 'Reverse Primers:\n'
-        for primer in self.forward_primers:
+        for primer in self.reverse_primers:
             str_rep += TAB + TAB.join([str(primer.get_adapter_seq()),
                                        str(primer.get_index_seq()),
                                        str(primer.get_heterogen_seq()),

@@ -6,6 +6,10 @@ from sequence_tools import *
 from hetero_spacer_generator import *
 import random
 
+LARGE_SAMPLE_SIZE = 100
+MED_SAMPLE_SIZE = 50
+SMALL_SAMPLE_SIZE = 10
+
 seqs = [
     Seq("ATCGATCG"),
     Seq("ATCG"),
@@ -69,6 +73,7 @@ def gen_random_spacers(incomplete_forward_primer: MBPrimerBuilder,
     reverse_spacer_seqs.extend(reverse_spacers)
 
 
+
 class TestSequenceTools:
     """Test suite for sequence tools"""
 
@@ -104,7 +109,7 @@ BINDING_MAX = 30
 BINDING_MIN = 12
 
 
-def gen_incomplete_primers(binding_len: int = 12):
+def gen_incomplete_primer(binding_len: int = 12):
     """Randomly generates an incomplete primer with a binding seq with len
     <binding_len> and blank heterogeneity regions. Sets the adapter and
     indexing regions to random sequences of default len."""
@@ -160,7 +165,7 @@ class SeqFixtureManager:
         self.forward_spacer_seqs = []
         self.reverse_spacer_seqs = []
 
-        self.num_to_generate = 1000
+        self.num_to_generate = LARGE_SAMPLE_SIZE
 
     def do_all(self):
         """Constructs all contained attributes."""
@@ -175,8 +180,8 @@ class SeqFixtureManager:
         """
         forward_len = random.randrange(BINDING_MIN, BINDING_MAX)
         reverse_len = random.randrange(BINDING_MIN, BINDING_MAX)
-        self.incomplete_forward_primer = gen_incomplete_primers(forward_len)
-        self.incomplete_reverse_primer = gen_incomplete_primers(reverse_len)
+        self.incomplete_forward_primer = gen_incomplete_primer(forward_len)
+        self.incomplete_reverse_primer = gen_incomplete_primer(reverse_len)
 
     def set_pot_spacers(self):
         """Sets <pot_forward_spacer> and <pot_reverse_spacer> to a set of
@@ -207,12 +212,25 @@ class SeqFixtureManager:
                            self.reverse_spacer,
                            self.num_to_generate)
 
+class TestSpacerAlignmentGen:
+
+    def test_get_all_spacer_combos_always_align(self):
+        """When the heterogenity spacers are allowed to be as long as the
+        heterogeneity region, there should always exist valid spacers."""
+        sfm = SeqFixtureManager()
+        sfm.set_primers_random()
+        sfm.incomplete_forward_primer.set_binding_seq("AAAAAAAAAAAA")
+        sag = SpacerAlignmentGen(12, 12)
+        assert sag.get_all_spacer_combos(
+            sfm.incomplete_forward_primer.get_binding_seq())
+
+
 
 class TestRandomBaseSelection:
     """Test suite for methods that aid in the creation of random heterogeneity
     spacers"""
 
-    random_tests_to_run = 500
+    random_tests_to_run = LARGE_SAMPLE_SIZE
     hg = HeteroGen(num_hetero=3)
     hg1 = HeteroGen()
     simple_seq_arr = [['A', 'T', 'C', 'G'],
@@ -277,19 +295,75 @@ class TestRandomBaseSelection:
             for i in range(4):
                 for j in range(len(spacers[i])):
                     seq_arr[i][j] = spacers[i][j]
-            assert ensure_hetero_seq_arr(seq_arr, 12)
+            assert ensure_hetero_seq_arr(seq_arr, len(seq_arr[0]) - 1)
+
+    def test_remove_high_dimerisation_basic(self) -> None:
+        """Tests whether _remove_high_dimerisation produces a sample with the
+        correct output size"""
+        sfm = SeqFixtureManager()
+        sfm.num_to_generate = MED_SAMPLE_SIZE
+        sfm.do_all()
+        rsg = RandomSpacerGen(12, 12, ConsolePresenter())
+        rsg._remove_high_dimerisation(sfm.forward_spacer_seqs,
+                                      sfm.incomplete_forward_primer,
+                                      SMALL_SAMPLE_SIZE)
+        rsg._remove_high_dimerisation(sfm.reverse_spacer_seqs,
+                                    sfm.incomplete_reverse_primer,
+                                      SMALL_SAMPLE_SIZE)
+        assert len(sfm.forward_spacer_seqs) == \
+               len(sfm.reverse_spacer_seqs) == SMALL_SAMPLE_SIZE
+
+    def test_remove_high_dimerisation_outperform_random(self) -> None:
+        """Tests whether the _remove_high_dimerisation produces primers with
+        less binding than a random sampling."""
+        sfm = SeqFixtureManager()
+        sfm.num_to_generate = MED_SAMPLE_SIZE
+        sfm.do_all()
+        rsg = RandomSpacerGen(12, 12, ConsolePresenter())
+        rand_for_spacers = []
+        for i in range(SMALL_SAMPLE_SIZE):
+            rand_for_spacers.append(random.choice(sfm.forward_spacer_seqs))
+        rsg._remove_high_dimerisation(sfm.forward_spacer_seqs,
+                                      sfm.incomplete_forward_primer,
+                                      SMALL_SAMPLE_SIZE)
+        rand_scores = 0
+        sorted_scores = 0
+        for i in range(SMALL_SAMPLE_SIZE):
+            sorted_scores += eval_self_binding(sfm.incomplete_forward_primer,
+                                             sfm.forward_spacer_seqs[i])
+            rand_scores += eval_self_binding(sfm.incomplete_forward_primer,
+                                             rand_for_spacers[i])
+        assert rand_scores >= sorted_scores
 
     def test_filter_spacer_sets_basic(self) -> None:
         sfm = SeqFixtureManager()
-        sfm.num_to_generate = 1000
+        sfm.num_to_generate = MED_SAMPLE_SIZE
         sfm.do_all()
         rsg = RandomSpacerGen(12, 12, ConsolePresenter())
         rsg._filter_spacer_sets(sfm.incomplete_forward_primer,
                                 sfm.incomplete_reverse_primer,
                                 sfm.forward_spacer_seqs,
-                                sfm.reverse_spacer_seqs, 3)
+                                sfm.reverse_spacer_seqs,
+                                SMALL_SAMPLE_SIZE / MED_SAMPLE_SIZE * 100)
         assert len(sfm.forward_spacer_seqs) == \
-               len(sfm.reverse_spacer_seqs) == 30
+               len(sfm.reverse_spacer_seqs) == SMALL_SAMPLE_SIZE
+
+    def test_cross_comapre_basic(self):
+        """Tests that cross compare prodcues the expected output for a basic
+        input."""
+        sfm = SeqFixtureManager()
+        sfm.do_all()
+        rsg = RandomSpacerGen(12, 12)
+        numsets = 3
+        primer_sets = rsg._cross_compare(sfm.incomplete_forward_primer,
+                           sfm.incomplete_reverse_primer,
+                           sfm.forward_spacer_seqs[0:SMALL_SAMPLE_SIZE],
+                           sfm.reverse_spacer_seqs[0:SMALL_SAMPLE_SIZE],
+                           numsets)
+        assert len(primer_sets) == numsets
+
+
+
 
 
 """

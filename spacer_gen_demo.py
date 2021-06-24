@@ -1,6 +1,7 @@
 from hetero_spacer_generator import HeteroGen
 from presenters import ConsolePresenter
 from demo_tools import *
+from threading import Thread
 
 PRESENTER = ConsolePresenter()
 hg = HeteroGen(presenter=PRESENTER)
@@ -66,7 +67,7 @@ while not succ:
     spacer_length, num_hetero = get_params()
     hg.set_params(spacer_length, num_hetero)
 
-    reverse = hg.get_all_spacer_combos(
+    reverse_spacers = hg.get_all_spacer_combos(
         incomplete_reverse_primer.get_binding_seq())
 
     if not reverse_spacers:
@@ -100,8 +101,23 @@ rigour = int(while_not_valid("Enter the rigour with which the program should "
                              "Please enter a number between 1 and 10:",
                              RANGE, start=1, end=10))
 
-print("Generating primers...")
+number_to_return = int(
+    while_not_valid("Enter the number of sets of primer sets you'd like to "
+                    "see.", "Please enter a number between 1 and 10:",
+                             RANGE, start=1, end=10))
 
-hg.get_hetero_seqs(incomplete_forward_primer, incomplete_reverse_primer,
-                   forward_spacer, reverse_spacer, )
+print("Generating primers. This may take some time...")
+
+
+psets = hg.get_hetero_seqs(incomplete_forward_primer, incomplete_reverse_primer,
+                   forward_spacer, reverse_spacer, number_to_return)
+
+for i in range(len(psets)):
+    print("Set #", i + 1, ':')
+    print(str(psets[i]))
+
+
+
+
+
 
