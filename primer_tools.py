@@ -1,9 +1,10 @@
-from typing import Any, List, Tuple, Dict
+from typing import Any, List, Tuple, Dict, Iterable, Union
 from sequence_tools import get_max_complementarity
 from Bio.Seq import Seq
 
 FORWARD = "forward"
 REVERSE = "reverse"
+TAB = '    '
 
 
 class Primer(Seq):
@@ -38,7 +39,7 @@ class MBPrimer(Primer):
     _direction: str
 
     def __init__(self, adapter_seq: str, index_seq: str, heterogen_seq: str,
-                 primer_region: str, direction: str = FORWARD) -> None:
+                 primer_region: str) -> None:
         """Constructs a primer sequence with components in the following order:
         <adapter_seq> <index_seq> <heterogen_seq> <primer_region> with each of
         their sequences read left to right."""
@@ -49,7 +50,6 @@ class MBPrimer(Primer):
         self._index_seq = Seq(index_seq)
         self._heterogen_seq = Seq(heterogen_seq)
         self._binding_seq = Seq(primer_region)
-        self._direction = direction
 
     def get_adapter_seq(self) -> Seq:
         """Returns adapter_seq."""
@@ -90,27 +90,22 @@ class MBPrimerBuilder:
     _index_seq: Seq
     _heterogen_seq: Seq
     _binding_seq: Seq
-    _direction: str
 
-    def set_adapter_seq(self, seq: Seq) -> None:
+    def set_adapter_seq(self, seq: Union[Seq, str]) -> None:
         """Sets adapter_seq to <seq>."""
         self._adapter_seq = Seq(str(seq))
 
-    def set_index_seq(self, seq: Seq) -> None:
+    def set_index_seq(self, seq: Union[Seq, str]) -> None:
         """Sets index_seq to <seq>."""
         self._index_seq = Seq(str(seq))
 
-    def set_heterogen_seq(self, seq: Seq) -> None:
+    def set_heterogen_seq(self, seq: Union[Seq, str]) -> None:
         """Sets heterogen_seq to <seq>."""
         self._heterogen_seq = Seq(str(seq))
 
-    def set_binding_seq(self, seq: Seq) -> None:
+    def set_binding_seq(self, seq: Union[Seq, str]) -> None:
         """Sets binding_seq to <seq>."""
         self._binding_seq = Seq(str(seq))
-
-    def set_direction(self, direction: str) -> None:
-        """Sets the direction of this primer to <direction>"""
-        self._direction = direction
 
     def get_adapter_seq(self) -> Seq:
         """Returns adapter_seq."""
@@ -128,17 +123,12 @@ class MBPrimerBuilder:
         """Returns binding_seq."""
         return self._binding_seq
 
-    def get_direction(self) -> str:
-        """Sets the direction of this primer to <direction>"""
-        return self._direction
-
     def get_MBPrimer(self) -> MBPrimer:
         """Returns a completed version of this primer."""
         return MBPrimer(self._adapter_seq.__str__(),
                         self._index_seq.__str__(),
                         self._heterogen_seq.__str__(),
-                        self._binding_seq.__str__(),
-                        self._direction)
+                        self._binding_seq.__str__())
 
 
 def eval_self_binding(incomplete_primer: MBPrimerBuilder,
@@ -160,7 +150,8 @@ def eval_self_binding(incomplete_primer: MBPrimerBuilder,
     return max(cmplmnt_lst)
 
 
-def remove_highest_scores(lst: List[Any], scores_dict: Dict[int:List[int]], num_to_keep: int, lowest: bool = False) -> None:
+def remove_highest_scores(lst: List[Any], scores_dict: Dict[int, List[int]],
+                          num_to_keep: int, lowest: bool = False) -> None:
     """Given <scores_dict> which maps scores to a list of indices, removes items
     at all indices in <lst> except for the <num_to_keep> highest scoring items.
     Iff <lowest> is true, then this behaviour is reversed, and the lowest
@@ -236,17 +227,36 @@ def evaluate_heterogen_binding_cross(forward_primers: HalfSet,
 
 
 class PrimerSet:
-    """A set of MBPrimers and their attributes.
-
-    === Private Attributes ===
-
-    """
+    """A set of MBPrimers"""
 
     forward_primers: List[MBPrimer]
     reverse_primers: List[MBPrimer]
 
-    def __init__(self, forward_primers: List[MBPrimer],
-                 reverse_primers: List[MBPrimer]) -> None:
+    def __init__(self, forward_primers: Iterable[MBPrimer],
+                 reverse_primers: Iterable[MBPrimer]) -> None:
         """Initialises the Primer set with the given list of primers."""
-        self.forward_primers = forward_primers
-        self.reverse_primers = reverse_primers
+        self.forward_primers = []
+        self.reverse_primers = []
+        for primer in forward_primers:
+            self.forward_primers.append(primer)
+        for primer in reverse_primers:
+            self.reverse_primers.append(primer)
+
+    def __str__(self) -> str:
+        """Returns a string representation of this primer set."""
+        str_rep = ''
+        str_rep += 'Forward Primers:\n'
+        for primer in self.forward_primers:
+            str_rep += TAB + TAB.join([str(primer.get_adapter_seq()),
+                                       str(primer.get_index_seq()),
+                                       str(primer.get_heterogen_seq()),
+                                       str(primer.get_binding_seq())])
+            str_rep += '\n'
+        str_rep += 'Reverse Primers:\n'
+        for primer in self.forward_primers:
+            str_rep += TAB + TAB.join([str(primer.get_adapter_seq()),
+                                       str(primer.get_index_seq()),
+                                       str(primer.get_heterogen_seq()),
+                                       str(primer.get_binding_seq())])
+            str_rep += '\n'
+        return str_rep

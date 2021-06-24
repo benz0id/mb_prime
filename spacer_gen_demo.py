@@ -1,98 +1,107 @@
 from hetero_spacer_generator import HeteroGen
-from Bio.Seq import Seq
-""" === Depreciated ===
-valid_input = False
-inpt = ''
-while not valid_input:
-    inpt = input("Please enter you sequence: ")
+from presenters import ConsolePresenter
+from demo_tools import *
 
-    if len(inpt) < 0 or inpt is None:
-        print("Invalid Input...\n")
-        continue
+PRESENTER = ConsolePresenter()
+hg = HeteroGen(presenter=PRESENTER)
+input("Press enter to start.")
+succ = False
 
-    for char in inpt:
-        if char not in "ATCG":
-            print("Invalid Input...\n")
-            continue
-    valid_input = True
+incomplete_forward_primer = MBPrimerBuilder()
+forward_spacers = []
 
-seq = Seq(inpt)
+while not succ:
+    print("Please enter below the components of your forward primer.\n"
+          "The adapter and binding regions are mandatory.\n")
 
-valid_input = False
-while not valid_input:
-    inpt = input("Please enter the max heterogeneity spacer length: ")
-    if not inpt.isnumeric():
-        print("Invalid Input...\n")
-        continue
-    if int(inpt) > len(seq):
-        print("Spacer cannot be longer than sequence...\n")
-        continue
-    valid_input = True
+    incomplete_forward_primer = get_incomplete_primer()
 
-print("Will now generate spacer regions ensuring 12 bases of heterogeneity. ")
+    print("Please input the desired parameters for the construction of your "
+          "forward primers.")
 
-hg = HeteroGen(max_spacer_length=int(inpt))
+    spacer_length, num_hetero = get_params()
+    hg.set_params(spacer_length, num_hetero)
 
-spacer_combos = hg.get_all_spacer_combos(seq)
+    forward_spacers = hg.get_all_spacer_combos(
+        incomplete_forward_primer.get_binding_seq())
 
-if spacer_combos == []:
-    print("Sorry! No spacer combos were found that match your specifications.")
-    exit(0)
+    if not forward_spacers:
+        print("Failed to find a way in which to align the given sequences. Try"
+              " setting the max spacer length to a greater value.")
+    else:
+        succ = True
 
-inpt = input(
-    ''.join(["Found ", str(len(spacer_combos)), " combinations of spacers "
-                                                "matching "
-                                           " your specifications. Enter "
-                                           "\"View\" to view."]))
-if inpt == "View" or inpt == "view":
-    print("\"+\" denotes a base within the spacer region.")
-    hg.visualise_spacer_combos(spacer_combos, seq)
+print("Spacers found. Press enter to select desired spacer combo.")
 
-while True:
-    valid_input = False
-    inpt = ''
-    while not valid_input:
-        inpt = input("Please enter you sequence: ")
+num_to_spacer = hg.visualise_spacer_alignments(forward_spacers,
+                                               incomplete_forward_primer.
+                                               get_binding_seq())
 
-        if len(inpt) < 0 or inpt is None:
-            print("Invalid Input...\n")
-            continue
+max_val = max(num_to_spacer.keys())
 
-        for char in inpt:
-            if char not in "ATCG":
-                print("Invalid Input...\n")
-                continue
-        valid_input = True
+spacer_ind = while_not_valid("Enter the number of the primer alignment you'd "
+                             "like to use:",
+                             "Invalid input: Ensure the number you've entered "
+                             "represents one of the primers displayed.\n "
+                             "Enter the number of the primer alignment you'd "
+                             "like to use:", RANGE, start=1, end=max_val)
 
-    seq = Seq(inpt)
+forward_spacer = num_to_spacer[int(spacer_ind)]
 
-    valid_input = False
-    while not valid_input:
-        inpt = input("Please enter the max heterogeneity spacer length: ")
-        if not inpt.isnumeric():
-            print("Invalid Input...\n")
-            continue
-        if int(inpt) > len(seq):
-            print("Spacer cannot be longer than sequence...\n")
-            continue
-        valid_input = True
+# Please forgive heinous copy pasta coding - in a rush
 
-    print("Will now generate spacer regions ensuring 12 bases of heterogeneity. ")
+succ = False
+incomplete_reverse_primer = MBPrimerBuilder()
+reverse_spacers = []
 
-    hg = HeteroGen(max_spacer_length=int(inpt))
+while not succ:
+    print("Please enter below the components of your reverse primer.\n"
+          "The adapter and binding regions are mandatory.\n")
 
-    spacer_combos = hg.get_all_spacer_combos(seq)
+    incomplete_reverse_primer = get_incomplete_primer()
 
-    if spacer_combos == []:
-        print("Sorry! No spacer combos were found that match your specifications.")
-        exit(0)
+    print("Please input the desired parameters for the construction of your "
+          "reverse primers.")
 
-    inpt = input(
-        ''.join(["Found ", str(len(spacer_combos)), " combinations of spacers "
-                                                    "matching "
-                                                    " your specifications. Enter "
-                                                    "\"View\" to view."]))
-    if inpt == "View" or inpt == "view":
-        print("\"+\" denotes a base within the spacer region.")
-        hg.visualise_spacer_combos(spacer_combos, seq)
-"""
+    spacer_length, num_hetero = get_params()
+    hg.set_params(spacer_length, num_hetero)
+
+    reverse = hg.get_all_spacer_combos(
+        incomplete_reverse_primer.get_binding_seq())
+
+    if not reverse_spacers:
+        print("Failed to find a way in which to align the given sequences. Try"
+              " setting the max spacer length to a greater value.")
+    else:
+        succ = True
+
+print("Spacers found. Press enter to select desired spacer combo.")
+
+num_to_spacer = hg.visualise_spacer_alignments(reverse_spacers,
+                                               incomplete_reverse_primer.
+                                               get_binding_seq())
+
+max_val = max(num_to_spacer.keys())
+
+spacer_ind = while_not_valid("Enter the number of the primer alignment you'd "
+                             "like to use:",
+                             "Invalid input: Ensure the number you've entered "
+                             "represents one of the primers displayed.\n "
+                             "Enter the number of the primer alignment you'd "
+                             "like to use:", RANGE, start=1, end=max_val)
+
+reverse_spacer = num_to_spacer[int(spacer_ind)]
+
+rigour = int(while_not_valid("Enter the rigour with which the program should "
+                             "search for possible combinations of spacers. "
+                             "Note: increasing the rigour leads to "
+                             "an exponential increase in runtime. Enter a "
+                             "value between 1 and 10:",
+                             "Please enter a number between 1 and 10:",
+                             RANGE, start=1, end=10))
+
+print("Generating primers...")
+
+hg.get_hetero_seqs(incomplete_forward_primer, incomplete_reverse_primer,
+                   forward_spacer, reverse_spacer, )
+
