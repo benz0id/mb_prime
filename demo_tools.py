@@ -24,7 +24,7 @@ def valid_input(input: Union[int, str], mode: str, start: Union[int, str] = 0,
     if mode == RANGE:
         start = int(start)
         end = int(end)
-        return start <= int(input) <= end
+        return input.isnumeric() and start <= int(input) <= end
     if mode == STR:
         return str(input) in str(allowed)
     if mode == DNA:

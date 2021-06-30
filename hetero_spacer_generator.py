@@ -1,16 +1,76 @@
 from typing import List, Tuple, Dict, Any, Callable
 from Bio.Seq import Seq
 from primer_tools import MBPrimer, MBPrimerBuilder, PrimerSet, HalfSet, \
-    eval_self_binding, evaluate_heterogen_binding_cross, remove_highest_scores
+    eval_consecutive_complementarity, eval_total_complementarity, \
+    evaluate_heterogen_binding_cross, remove_highest_scores
 from presenters import Presenter, ConsolePresenter
 from abc import ABC, abstractmethod
 from sequence_tools import get_max_complementarity
 import random
 from defaults import NUM_SPACERS, MAX_SPACER_LENGTH, NUM_HETERO, \
-    NUMBER_TO_CROSS_COMPARE, INITIAL_PRIMER_SET_SIZE
+    NUMBER_TO_CROSS_COMPARE, INITIAL_PRIMER_SET_SIZE, \
+    GET_SMALLEST_TOTAL_LEN_DEFAULT, GET_SMALLEST_OF_ANY_SPACER_DEFAULT
+# TODO better way to do this
+
+
+class IncompatibleSpacerError(Exception):
+    """Thrown when an incompatible spacer is used during some process."""
+
+
+# Begin methods for sorting spacers
+def get_smallest_total_len_list(spacers: List[Tuple[int, int, int, int]]) \
+        -> List[int]:
+    """Returns a list mapping the index of a spacer combo to the combined length
+    of all spacers in that combo."""
+    spacer_combined_length = []
+    for spacer in spacers:
+        spacer_combined_length.append(sum(spacer))
+    return spacer_combined_length
+
+
+def get_smallest_of_any_spacer_list(spacers: List[Tuple[int, int, int, int]]) \
+        -> List[int]:
+    """Returns a list mapping the index of a spacer combo to the maximum length
+    of a spacer in that combo."""
+    spacer_max_len = []
+    for spacer in spacers:
+        spacer_max_len.append(max(spacer))
+    return spacer_max_len
 
 
 class SpacerAlignmentGen:
+    """_max_spacer_length:
+            The maximum length of a spacer produced.
+    _num_hetero:
+            The length of the heterogeneity that should be ensured across.
+    _presenter:
+            The class that handles the visualisation of data produced.
+    _criteria:
+            Functions score each spacer combo and return a list of those scores.
+            Lower scores are always better.
+    _criterion_to_weight:
+            A dictionary mapping a criterion to it's relative weight (how
+            important the scores returned by that function are when sorting
+            spacer combos)."""
+
+    _max_spacer_length: int
+    _num_hetero: int
+    _presenter: Presenter
+    _criteria: List[Callable[[List[Tuple[int, int, int, int]]], List[int]]]
+    _criterion_to_weight: \
+        Dict[Callable[[List[Tuple[int, int, int, int]]], List[int]], int]
+
+    def _build_criteria(self) -> None:
+        """Sets self._criteria to some list of default criteria and
+        self._criterion_to_weight to the default weights for those criteria."""
+
+        # Add new criteria here.
+        self._criterion_to_weight = {
+            get_smallest_of_any_spacer_list: GET_SMALLEST_OF_ANY_SPACER_DEFAULT,
+            get_smallest_total_len_list: GET_SMALLEST_TOTAL_LEN_DEFAULT
+        }
+
+        self._criteria = list(self._criterion_to_weight.keys())
 
     def __init__(self, max_spacer_length: int, num_hetero: int,
                  presenter: Presenter = ConsolePresenter()) -> None:
@@ -20,7 +80,7 @@ class SpacerAlignmentGen:
         self._presenter = presenter
         self._max_spacer_length = max_spacer_length
         self._num_hetero = num_hetero
-        self._num_spacers = NUM_SPACERS
+        self._build_criteria()
 
     def get_all_spacer_combos(self, seq: Seq) \
             -> List[Tuple[int, int, int, int]]:
@@ -28,28 +88,25 @@ class SpacerAlignmentGen:
         produced by shifting it to the right) that ensures nucleotide
         diversity across the first <self.num_hetero> bases. Returns a list of
         tuples, each of which contain unique combinations of valid heterogeneity
-        spacer lengths."""
+        spacer lengths. Spacer tuples are ordered from smallest spacer to
+        greatest."""
 
         valid_spacer_combos = []
-        for i in range(0, self._num_hetero + 1):
-            # Seeding with a single spacer length
-            spacers = [i]
-            self._get_all_compatible_spacers(seq, spacers, self._num_spacers,
-                                             spacer_combo_list=valid_spacer_combos)
+        spacers = []
+        self._get_all_compatible_spacers(seq, spacers, NUM_SPACERS,
+                                         spacer_combo_list=valid_spacer_combos)
         return valid_spacer_combos
 
     def _get_all_compatible_spacers(self, seq: Seq, spacers: List[int],
-                                    target_depth: int,
-                                    depth: int = 0,
+                                    target_length: int,
                                     spacer_combo_list: List[
-                                        Tuple[int, int, int, int]] = None) -> None:
-        """Produces a tree of valid combinations of spacer lengths, returns
-        the first node in this tree. If a depth of <target_depth> cannot be
-        reached, returns a node with node.val -1. If <spacer_combo_list> is
-        specified then all valid combinations of spacers will be appended to
-        it. """
+                                        Tuple[int, int, int, int]] = None) \
+            -> None:
+        """Will find all valid spacer combos for <seq> that include <spacers>.
+        Will add all valid spacers with a length equal to <target_length> to
+        <spacer_combo_list>."""
 
-        if depth == target_depth - 1:
+        if len(spacers) == target_length:
             if spacer_combo_list is not None:
                 spacer_combo_list.append(tuple(spacers))
             return None
@@ -59,12 +116,12 @@ class SpacerAlignmentGen:
             # self.num_hetero
             trial_spacers = spacers.copy()
             trial_spacers.append(spacer)
-            self._get_all_compatible_spacers(seq, trial_spacers, target_depth,
-                                             depth + 1, spacer_combo_list)
+            self._get_all_compatible_spacers(seq, trial_spacers, target_length
+                                             ,spacer_combo_list)
         return None
 
     def _get_compatible_spacers(self, seq: Seq,
-                                seqs_spacers: List[int]) -> Tuple[int, int, int, int]:
+                                seqs_spacers: List[int]) -> tuple[int, ...]:
         """Returns a tuple containing all spacers < <self.num_hetero> such
         that for all j + spacer < <self.num_hetero>, seq[j + spacer] != any
         seqs[i][j]. Returns an empty tuple if no such spacers exist. TODO
@@ -74,7 +131,10 @@ class SpacerAlignmentGen:
         valid_spacers = []
         # Assume that there exist no valid spacers less than the greatest
         # already used
-        start_point = seqs_spacers[-1]
+        if len(seqs_spacers) > 0:
+            start_point = seqs_spacers[-1]
+        else:
+            start_point = 0
 
         # Iterate though all possible spacers - add to valid spacers if it is
         # compatible
@@ -97,10 +157,38 @@ class SpacerAlignmentGen:
 
             # Checking each of the seqs for matching bases.
             for j in range(0, len(spacers)):
-                if seq[i + spacer - spacers[j]] == seq[i]:
+                try:
+                    original_spacer_base = seq[i + spacer - spacers[j]]
+                    new_spacer_seq_base = seq[i]
+                    if original_spacer_base == new_spacer_seq_base:
+                        return False
+                    # Sequence is shorter than heterogeneity region, spacer
+                    # fails to push the sequence out of the heterogeneity
+                    # region.
+                except IndexError:
                     return False
 
         return True
+
+    def sort_spacer_combos(self,
+                           spacer_combos: List[Tuple[int, int, int, int]]
+                           ) -> None:
+        """Returns a list of spacer combos sorted according to <self.criteria>.
+        """
+        # Instantiate a list of scores with the lowest possible scores. This
+        # will store the scores for each spacer in <spacer_combos>
+        scores = []
+        for i in range(len(spacer_combos)):
+            scores.append(1)
+
+        for i in range(len(self._criteria)):
+            criterion = self._criteria[i]
+            weight = self._criterion_to_weight[criterion]
+            criterion_scores = criterion(spacer_combos)
+            for j in range(len(spacer_combos)):
+                scores[j] = scores[j] * criterion_scores[j] * weight
+
+        co_sort(scores, spacer_combos)
 
     def set_params(self, max_spacer_length: int, num_hetero: int) -> None:
         """Sets the construction parameters to the given values."""
@@ -109,10 +197,15 @@ class SpacerAlignmentGen:
 
 
 class HeteroSpacerGen(ABC):
+    """_max_spacer_length:
+            The maximum length of a spacer produced.
+    _num_hetero:
+            The length of the heterogeneity that should be ensured across.
+    _presenter:
+            The class that handles the visualisation of data produced."""
     _max_spacer_length: int
     _num_hetero: int
     _presenter: Presenter
-    _num_spacers: int
 
     def __init__(self, max_spacer_length: int, num_hetero: int = NUM_HETERO,
                  presenter: Presenter = ConsolePresenter()) -> None:
@@ -120,7 +213,6 @@ class HeteroSpacerGen(ABC):
         self._presenter = presenter
         self._max_spacer_length = max_spacer_length
         self._num_hetero = num_hetero
-        self._num_spacers = NUM_SPACERS
 
     @abstractmethod
     def get_hetero_seqs(self, incomplete_forward_primer: MBPrimerBuilder,
@@ -220,7 +312,15 @@ class RandomSpacerGen(HeteroSpacerGen):
     === Private Attributes ===
     _random_per_align:
             The number of randomly generated heterogeneity sequences to be
-            produced for each alignment."""
+            produced for each alignment.
+    _number_to_cross_compare:
+            The number of forward and reverse spacers to compare when evaluating
+            primer hetero-dimer formation.
+    _criteria:
+            A list of functions or methods that sort a list of potential spacer
+             sequences <List[Tuple[Seq]]> for some <MBPrimerBuilder> according
+             to some metric, and leave some num <int> of the best scoring sets
+             of spacer sequences in the list."""
     _random_per_align: int
     _number_to_cross_compare: int
     _criteria: List[Callable[[List[Tuple[Seq]], MBPrimerBuilder, int], None]]
@@ -240,7 +340,9 @@ class RandomSpacerGen(HeteroSpacerGen):
         self._random_per_align = INITIAL_PRIMER_SET_SIZE * rigour
         self._number_to_cross_compare = NUMBER_TO_CROSS_COMPARE * rigour
         self._criteria = [
-            self._remove_high_dimerisation]  # TODO find better way to do this
+            self._remove_high_dimer_complementarity,
+            self._remove_high_consec_complementarity
+        ]
 
     def get_hetero_seqs(self, incomplete_forward_primer: MBPrimerBuilder,
                         incomplete_reverse_primer: MBPrimerBuilder,
@@ -350,16 +452,33 @@ class RandomSpacerGen(HeteroSpacerGen):
             criterion(reverse_spacer_seqs, incomplete_reverse_primer,
                       int(num_to_keep))
 
-    def _remove_high_dimerisation(self, spacers: List[Tuple[Seq]],
-                                  incomplete_primer: MBPrimerBuilder,
-                                  num_to_keep: int) -> None:
+    def _remove_high_consec_complementarity(self, spacers: List[Tuple[Seq]],
+                                            incomplete_primer: MBPrimerBuilder,
+                                            num_to_keep: int) -> None:
+        """Removes the spacers from <spacers> that have the greatest number of
+        consecutive complementary bases."""
+        # Map consecutive complementarity of spacers to their index in
+        # <spacers>.
+        complementarity_to_index = {}
+        for i in range(len(spacers)):
+            complement = eval_consecutive_complementarity(incomplete_primer,
+                                                          spacers[i])
+            add(complementarity_to_index, complement, i)
+
+        # Remove the spacers with highest complementarity.
+        remove_highest_scores(spacers, complementarity_to_index, num_to_keep)
+
+    def _remove_high_dimer_complementarity(self, spacers: List[Tuple[Seq]],
+                                           incomplete_primer: MBPrimerBuilder,
+                                           num_to_keep: int) -> None:
         """Removes the spacers from <spacers> with the highest self
         complementarity with <incomplete_primer>. Retains the <num_to_keep>
         spacers with the lowest self complementarity"""
         # Map complementarity of spacers to their index in <spacers>.
         complementarity_to_index = {}
         for i in range(len(spacers)):
-            complement = eval_self_binding(incomplete_primer, spacers[i])
+            complement = eval_total_complementarity(incomplete_primer,
+                                                    spacers[i])
             add(complementarity_to_index, complement, i)
 
         # Remove the spacers with highest complementarity.
@@ -383,7 +502,8 @@ class RandomSpacerGen(HeteroSpacerGen):
     # Begin methods involved in the generation of randomised heterogeneity
     # sequences.
 
-    def _get_vacant_bases(self, spacers: Tuple[int, int, int, int]) -> List[List[int]]:
+    def _get_vacant_bases(self, spacers: Tuple[int, int, int, int]) -> List[
+        List[int]]:
         """Returns a List containing a List of indices of unfilled bases in
         <sequence_array>.
         >>> seq_arr = [['A', 'T', 'C', 'G'],
@@ -396,7 +516,7 @@ class RandomSpacerGen(HeteroSpacerGen):
         for i in range(spacers[3] + 1):
             unfilled_bases.append([])
 
-        for i in range(self._num_spacers):
+        for i in range(NUM_SPACERS):
             for j in range(spacers[i]):
                 unfilled_bases[j].append(i)
 
@@ -415,8 +535,13 @@ class RandomSpacerGen(HeteroSpacerGen):
          >>> RandomSpacerGen._get_potential_bases(seq_arr, 2)
          ['G']"""
         possible_bases = ['A', 'T', 'C', 'G']
-        for i in range(self._num_spacers):
-            if sequence_array[i][column].isalnum():
+        for i in range(NUM_SPACERS):
+            # The user entered a set of primers that do not guarantee
+            # heterogeneity across the heterogeneity region.
+            if sequence_array[i][column].isalnum() \
+                    and sequence_array[i][column] not in possible_bases:
+                raise IncompatibleSpacerError()
+            elif sequence_array[i][column].isalnum():
                 possible_bases.remove(sequence_array[i][column])
         return possible_bases
 
@@ -435,15 +560,29 @@ class RandomSpacerGen(HeteroSpacerGen):
             # Randomly fill one of the unspecified bases
             while unfilled_bases[column]:
                 _select_and_set(potential_bases, unfilled_bases, column,
-                                     sequence_array)
+                                sequence_array)
 
         # Extract newly generated heterogeneity spacers from the sequence array.
         final_spacers = []
-        for i in range(self._num_spacers):
+        for i in range(NUM_SPACERS):
             spacer = Seq(str.join('', sequence_array[i][0:spacers[i]]))
             final_spacers.append(spacer)
 
         return tuple(final_spacers)
+
+    def set_rigour(self, rigour: int) -> None:
+        """Increases the sample sizes of the random generation process according to
+        <rigour>."""
+        if rigour > 1:
+            self._random_per_align = INITIAL_PRIMER_SET_SIZE * rigour
+            self._number_to_cross_compare = NUMBER_TO_CROSS_COMPARE * rigour
+        elif rigour < 1:
+            self._random_per_align = int(INITIAL_PRIMER_SET_SIZE /
+                                         -rigour)
+            self._number_to_cross_compare = int(NUMBER_TO_CROSS_COMPARE /
+                                                -rigour)
+        elif rigour == 0:
+            raise ValueError("Rigour cannot be equal to 0")
 
 
 def visualise_complete_primers(primer_sets: List[PrimerSet]) \
@@ -468,8 +607,6 @@ class HeteroGen:
             The maximum length of a spacer produced.
     _num_hetero:
             The length of the heterogeneity that should be ensured across.
-    _num_spacers:
-            The number of spacers in a set of forward/reverse primers.
      _presenter:
             The class that handles the visualisation of data produced.
     _alignment_gen:
@@ -480,20 +617,18 @@ class HeteroGen:
             """
     _max_spacer_length: int
     _num_hetero: int
-    _num_spacers: int
     _presenter: Presenter
     _alignment_gen: SpacerAlignmentGen
     _primer_gen: RandomSpacerGen
 
     def __init__(self, max_spacer_length: int = MAX_SPACER_LENGTH,
-                 num_hetero: int = 12,
+                 num_hetero: int = NUM_HETERO,
                  presenter: Presenter = ConsolePresenter()) -> None:
         """Initialises the attributes to the values specified."""
         self._presenter = presenter
 
         self._max_spacer_length = max_spacer_length
         self._num_hetero = num_hetero
-        self._num_spacers = NUM_SPACERS
         self._alignment_gen = SpacerAlignmentGen(max_spacer_length, num_hetero,
                                                  presenter)
         self._primer_gen = RandomSpacerGen(max_spacer_length, num_hetero,
@@ -506,7 +641,12 @@ class HeteroGen:
         self._primer_gen.set_params(max_spacer_length, num_hetero)
         self._alignment_gen.set_params(max_spacer_length, num_hetero)
 
-    def get_all_spacer_combos(self, seq: Seq) -> List[Tuple[int, int, int, int]]:
+    def set_rigour(self, rigour: int) -> None:
+        """Sets the rigour to the specified value."""
+        self._primer_gen.set_rigour(rigour)
+
+    def get_all_spacer_combos(self, seq: Seq) -> List[
+        Tuple[int, int, int, int]]:
         """Given a <seq>, will provide a set of alignments of that sequence (
         produced by shifting it to the right) that ensures nucleotide
         diversity across the first <self.num_hetero> bases. Returns a list of
@@ -527,8 +667,10 @@ class HeteroGen:
                                                 forward_spacer, reverse_spacer,
                                                 num_to_return)
 
-    def visualise_spacer_alignments(self, spacers: List[Tuple[int, int, int, int]],
-                                    seq: Seq) -> Dict[int, Tuple[int, int, int, int]]:
+    def visualise_spacer_alignments(self,
+                                    spacers: List[Tuple[int, int, int, int]],
+                                    seq: Seq) -> Dict[
+        int, Tuple[int, int, int, int]]:
         """Displays a visual representation of all of the <spacers> for the
         given <seq>. Assumes a set of 4 spacers per tuple."""
         spacer_dict = {}
@@ -542,7 +684,7 @@ class HeteroGen:
                 to_print += str(j) + ' '
             to_print += '\n'
 
-            for j in range(0, self._num_spacers):
+            for j in range(0, NUM_SPACERS):
                 spacer = spacer_tup[j]
 
                 to_print += '+ ' * spacer
@@ -559,12 +701,20 @@ class HeteroGen:
         self._presenter.print(to_print)
         return spacer_dict
 
-    def visualise_seq_arr(self, seq_arrs: List[List[List[str or Seq]]]) -> None:
+    def visualise_seq_arr(self, seq_arrs: List[List[List[str]]]) -> None:
         """Displays a visual representation of a given <seq_arrs>.
 
         Precondition: For all valid i, j, and k,
-        len(<seq_arr>[i][j][k]) > self._num_hetero"""
+        len(<seq_arr>[i][j][k]) > self._num_hetero
+
+        Note:
+            Replaces all '' in seq_arr with 'N' """
         to_print = ''
+        for i in range(len(seq_arrs)):
+            for j in range(len(seq_arrs[i])):
+                for k in range(len(seq_arrs[i][j])):
+                    if seq_arrs[i][j][k] == '':
+                        seq_arrs[i][j][k] = 'N'
 
         for i in range(len(seq_arrs)):
             to_print += ''.join(["Sequence array #", str(i + 1), '\n'])
@@ -574,7 +724,7 @@ class HeteroGen:
             to_print += '\n'
 
             # Add spaces between the bases in the heterogeneity region
-            for j in range(self._num_spacers):
+            for j in range(NUM_SPACERS):
                 to_print += ' '.join(seq_arrs[i][j][0:self._num_hetero]) + ' '
                 to_print += ''.join(seq_arrs[i][j][self._num_hetero:]) + '\n'
 

@@ -21,8 +21,8 @@ seqs = [
 
 
 def ensure_hetero_bases(bases: List[str]) -> bool:
-    for i in range(4):
-        for j in range(i + 1, 4):
+    for i in range(len(bases)):
+        for j in range(i + 1, len(bases)):
             if bases[i] == bases[j]:
                 return False
     return True
@@ -31,13 +31,28 @@ def ensure_hetero_bases(bases: List[str]) -> bool:
 def ensure_hetero_seq_arr(seq_arr: [List[List[str]]], num_hetero: int) -> bool:
     """Returns true iff the sequences contained in <seq_arr> are
     heterogeneous for the first <num_hetero> bases."""
-    for column in range(num_hetero):
+    for column in range(min(num_hetero, len(seq_arr[0]) - 1)):
         bases = []
         for row in range(4):
-            bases.append(seq_arr[row][column])
+            if seq_arr[row][column].isalpha():
+                bases.append(seq_arr[row][column])
         if not ensure_hetero_bases(bases):
             return False
     return True
+
+
+def ensure_valid_spacers(incomplete_primer: MBPrimerBuilder or Seq,
+                         spacers: Tuple[int, int, int, int],
+                         num_hetero) -> bool:
+    """Ensures that the spacers produced by the given spacers will be valid. If
+    """
+    if type(incomplete_primer) == MBPrimerBuilder:
+        seq_arr = _gen_sequence_array(incomplete_primer.get_binding_seq(),
+                                      spacers)
+    else:
+        seq_arr = _gen_sequence_array(incomplete_primer,
+                                      spacers)
+    return ensure_hetero_seq_arr(seq_arr, num_hetero)
 
 
 def gen_random_seq(length: int) -> Seq:
@@ -73,36 +88,6 @@ def gen_random_spacers(incomplete_forward_primer: MBPrimerBuilder,
     reverse_spacer_seqs.extend(reverse_spacers)
 
 
-
-class TestSequenceTools:
-    """Test suite for sequence tools"""
-
-    def test_get_max_complementarity(self):
-        seq = seqs[1]
-        assert get_max_complementarity(seq, [seqs[0]]) == 2
-        assert get_max_complementarity(seq, [seqs[1]]) == 0
-        assert get_max_complementarity(seq, [seqs[2]]) == 1
-        assert get_max_complementarity(seq, [seqs[3]]) == 1
-        assert get_max_complementarity(seq, [seqs[4]]) == 0
-        assert get_max_complementarity(seq, [seqs[5]]) == 1
-
-    def test_get_site_complementarity(self):
-        assert get_site_complementarity(seqs[4], seqs[1], 1) == 0
-        assert get_site_complementarity(seqs[1], seqs[0], 0) == 0
-        assert get_site_complementarity(seqs[1], seqs[0], 1) == 2
-
-
-def test_co_sort() -> None:
-    ls = [1, 2, 3, 4, 5, 6, 7]
-    lst = [2, 7, 1, 3, 5, 6, 4]
-    lst1 = [2, 7, 1, 3, 5, 6, 4]
-    lstc = lst[:]
-    lstc1 = lst1[:]
-
-    co_sort(lstc, lstc1)
-    assert lstc == ls and lstc1 == ls
-
-
 ADAPTER_LEN = 12
 INDEX_LEN = 4
 BINDING_MAX = 30
@@ -118,6 +103,18 @@ def gen_incomplete_primer(binding_len: int = 12):
     primer.set_binding_seq(gen_random_seq(binding_len))
     primer.set_index_seq(gen_random_seq(INDEX_LEN))
     return primer
+
+def gen_rand_spacer_aligns(num_primers: int, max_val: int) \
+        -> List[Tuple[int, int, int, int]]:
+    """Generates a set of <num_primers> randomised primers with
+    length <= <max_val>."""
+    spacers = []
+    for _ in range(num_primers):
+        spacers.append((random.randrange(0, max_val),
+                        random.randrange(0, max_val),
+                        random.randrange(0, max_val),
+                        random.randrange(0, max_val)))
+    return spacers
 
 
 class SeqFixtureManager:
@@ -212,7 +209,60 @@ class SeqFixtureManager:
                            self.reverse_spacer,
                            self.num_to_generate)
 
+
+class TestSequenceTools:
+    """Test suite for sequence tools"""
+
+    def test_get_max_complementarity(self):
+        seq = seqs[1]
+        assert get_max_complementarity(seq, [seqs[0]]) == 2
+        assert get_max_complementarity(seq, [seqs[1]]) == 0
+        assert get_max_complementarity(seq, [seqs[2]]) == 1
+        assert get_max_complementarity(seq, [seqs[3]]) == 1
+        assert get_max_complementarity(seq, [seqs[4]]) == 0
+        assert get_max_complementarity(seq, [seqs[5]]) == 1
+
+    def test_get_site_complementarity(self):
+        assert get_site_complementarity(seqs[4], seqs[1], 1) == 0
+        assert get_site_complementarity(seqs[1], seqs[0], 0) == 0
+        assert get_site_complementarity(seqs[1], seqs[0], 1) == 2
+
+
+def test_co_sort() -> None:
+    ls = [1, 2, 3, 4, 5, 6, 7]
+    lst = [2, 7, 1, 3, 5, 6, 4]
+    lst1 = [2, 7, 1, 3, 5, 6, 4]
+    lstc = lst[:]
+    lstc1 = lst1[:]
+
+    co_sort(lstc, lstc1)
+    assert lstc == ls and lstc1 == ls
+
+
 class TestSpacerAlignmentGen:
+
+    def test_get_smallest_total_len_list(self):
+        spacers = gen_rand_spacer_aligns(NUM_HETERO, NUM_HETERO)
+        scores = get_smallest_total_len_list(spacers)
+
+        for i in range(len(spacers)):
+            assert sum(spacers[i]) == scores[i]
+
+    def test_get_smallest_of_any_spacer_list(self) -> None:
+        spacers = gen_rand_spacer_aligns(NUM_HETERO, NUM_HETERO)
+        scores = get_smallest_of_any_spacer_list(spacers)
+
+        for i in range(len(spacers)):
+            assert max(spacers[i]) == scores[i]
+
+    def test_sort_spacer_combos(self) -> None:
+        spacers = gen_rand_spacer_aligns(NUM_HETERO, NUM_HETERO)
+        sag = SpacerAlignmentGen(MAX_SPACER_LENGTH, NUM_HETERO)
+        sag.sort_spacer_combos(spacers)
+        assert sum(spacers[0]) < sum(spacers[-1]) and \
+               max(spacers[0]) < max(spacers[-1])
+
+
 
     def test_get_all_spacer_combos_always_align(self):
         """When the heterogenity spacers are allowed to be as long as the
@@ -224,6 +274,34 @@ class TestSpacerAlignmentGen:
         assert sag.get_all_spacer_combos(
             sfm.incomplete_forward_primer.get_binding_seq())
 
+    def test_always_valid_align(self) -> None:
+        for i in range(SMALL_SAMPLE_SIZE):
+            for j in range(SMALL_SAMPLE_SIZE):
+                sfm = SeqFixtureManager()
+                sfm.for_num_hetero = i
+                sfm.for_max_spacer_length = j
+                sfm.set_primers_random()
+                sfm.set_pot_spacers()
+                for spacer in sfm.pot_forward_spacers:
+                    assert ensure_valid_spacers(sfm.incomplete_forward_primer,
+                                                spacer, i)
+                for spacer in sfm.pot_reverse_spacers:
+                    assert ensure_valid_spacers(sfm.incomplete_reverse_primer,
+                                                spacer, i)
+
+    def test_generates_valid_aligns(self):
+        seq = Seq('GCCGGCATGGTCATGAAG')
+        sag = SpacerAlignmentGen(NUM_HETERO, MAX_SPACER_LENGTH)
+        primer_alignments = sag.get_all_spacer_combos(seq)
+        for spacer in primer_alignments:
+            assert ensure_valid_spacers(seq, spacer, NUM_HETERO)
+
+    def test_is_invalid_seq(self):
+        seq = Seq('GCCGGCATGGTCATGAAG')
+        sag = SpacerAlignmentGen(NUM_HETERO, MAX_SPACER_LENGTH)
+        for i in range(NUM_HETERO):
+            for j in range(max(1, i), NUM_HETERO):
+                assert not ensure_valid_spacers(seq, (0, 0, i, j), NUM_HETERO)
 
 
 class TestRandomBaseSelection:
@@ -290,32 +368,32 @@ class TestRandomBaseSelection:
             return
         for spacer_lengths in spacer_combos:
             spacers = self.hg1._primer_gen._gen_heterogeneity_spacers_rand(seq,
-                                                                spacer_lengths)
+                                                                           spacer_lengths)
             seq_arr = _gen_sequence_array(seq, spacer_lengths)
             for i in range(4):
                 for j in range(len(spacers[i])):
                     seq_arr[i][j] = spacers[i][j]
             assert ensure_hetero_seq_arr(seq_arr, len(seq_arr[0]) - 1)
 
-    def test_remove_high_dimerisation_basic(self) -> None:
-        """Tests whether _remove_high_dimerisation produces a sample with the
-        correct output size"""
+    def test_remove_high_dimer_complementarity_basic(self) -> None:
+        """Tests whether _remove_high_dimer_complementarity produces a sample
+        with the correct output size"""
         sfm = SeqFixtureManager()
         sfm.num_to_generate = MED_SAMPLE_SIZE
         sfm.do_all()
         rsg = RandomSpacerGen(12, 12, ConsolePresenter())
-        rsg._remove_high_dimerisation(sfm.forward_spacer_seqs,
-                                      sfm.incomplete_forward_primer,
-                                      SMALL_SAMPLE_SIZE)
-        rsg._remove_high_dimerisation(sfm.reverse_spacer_seqs,
-                                    sfm.incomplete_reverse_primer,
-                                      SMALL_SAMPLE_SIZE)
+        rsg._remove_high_dimer_complementarity(sfm.forward_spacer_seqs,
+                                               sfm.incomplete_forward_primer,
+                                               SMALL_SAMPLE_SIZE)
+        rsg._remove_high_dimer_complementarity(sfm.reverse_spacer_seqs,
+                                               sfm.incomplete_reverse_primer,
+                                               SMALL_SAMPLE_SIZE)
         assert len(sfm.forward_spacer_seqs) == \
                len(sfm.reverse_spacer_seqs) == SMALL_SAMPLE_SIZE
 
-    def test_remove_high_dimerisation_outperform_random(self) -> None:
-        """Tests whether the _remove_high_dimerisation produces primers with
-        less binding than a random sampling."""
+    def test_remove_high_dimer_complementarity_outprm_random(self) -> None:
+        """Tests whether the _remove_high_dimer_complementarity produces primers
+        with less binding than a random sampling."""
         sfm = SeqFixtureManager()
         sfm.num_to_generate = MED_SAMPLE_SIZE
         sfm.do_all()
@@ -323,17 +401,35 @@ class TestRandomBaseSelection:
         rand_for_spacers = []
         for i in range(SMALL_SAMPLE_SIZE):
             rand_for_spacers.append(random.choice(sfm.forward_spacer_seqs))
-        rsg._remove_high_dimerisation(sfm.forward_spacer_seqs,
-                                      sfm.incomplete_forward_primer,
-                                      SMALL_SAMPLE_SIZE)
+        rsg._remove_high_dimer_complementarity(sfm.forward_spacer_seqs,
+                                               sfm.incomplete_forward_primer,
+                                               SMALL_SAMPLE_SIZE)
         rand_scores = 0
         sorted_scores = 0
         for i in range(SMALL_SAMPLE_SIZE):
-            sorted_scores += eval_self_binding(sfm.incomplete_forward_primer,
-                                             sfm.forward_spacer_seqs[i])
-            rand_scores += eval_self_binding(sfm.incomplete_forward_primer,
-                                             rand_for_spacers[i])
+            sorted_scores += eval_total_complementarity(
+                sfm.incomplete_forward_primer,
+                sfm.forward_spacer_seqs[i])
+            rand_scores += eval_total_complementarity(
+                sfm.incomplete_forward_primer,
+                rand_for_spacers[i])
         assert rand_scores >= sorted_scores
+
+    def test_remove_high_consec_complementarity_basic(self) -> None:
+        """Tests whether _remove_high_dimer_complementarity produces a sample with the
+        correct output size"""
+        sfm = SeqFixtureManager()
+        sfm.num_to_generate = MED_SAMPLE_SIZE
+        sfm.do_all()
+        rsg = RandomSpacerGen(12, 12, ConsolePresenter())
+        rsg._remove_high_consec_complementarity(sfm.forward_spacer_seqs,
+                                                sfm.incomplete_forward_primer,
+                                                SMALL_SAMPLE_SIZE)
+        rsg._remove_high_consec_complementarity(sfm.reverse_spacer_seqs,
+                                                sfm.incomplete_reverse_primer,
+                                                SMALL_SAMPLE_SIZE)
+        assert len(sfm.forward_spacer_seqs) == \
+               len(sfm.reverse_spacer_seqs) == SMALL_SAMPLE_SIZE
 
     def test_filter_spacer_sets_basic(self) -> None:
         sfm = SeqFixtureManager()
@@ -356,14 +452,47 @@ class TestRandomBaseSelection:
         rsg = RandomSpacerGen(12, 12)
         numsets = 3
         primer_sets = rsg._cross_compare(sfm.incomplete_forward_primer,
-                           sfm.incomplete_reverse_primer,
-                           sfm.forward_spacer_seqs[0:SMALL_SAMPLE_SIZE],
-                           sfm.reverse_spacer_seqs[0:SMALL_SAMPLE_SIZE],
-                           numsets)
+                                         sfm.incomplete_reverse_primer,
+                                         sfm.forward_spacer_seqs[
+                                         0:SMALL_SAMPLE_SIZE],
+                                         sfm.reverse_spacer_seqs[
+                                         0:SMALL_SAMPLE_SIZE],
+                                         numsets)
         assert len(primer_sets) == numsets
 
+    def test_full_primer_creation_process(self):
+        for_adapter_seq = 'ACACTCTTTCCCTACACGACGCTCTTCCGATCT'
+        rev_adapter_seq = 'GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT'
+        for_indexing_seq = 'ATCG'
+        rev_indexing_seq = 'GCTA'
+        for_binding_seq = 'TGTCATCTCCTTCTGCTACGG'
+        rev_binding_seq = 'GCCGGCATGGTCATGAAG'
 
+        hetero_size = 12
+        spacer_size = 12
 
+        incomp_forward_primer = MBPrimerBuilder()
+        incomp_forward_primer.set_binding_seq(for_binding_seq)
+        incomp_forward_primer.set_index_seq(for_indexing_seq)
+        incomp_forward_primer.set_adapter_seq(for_adapter_seq)
+        incomp_reverse_primer = MBPrimerBuilder()
+        incomp_reverse_primer.set_binding_seq(rev_binding_seq)
+        incomp_reverse_primer.set_index_seq(rev_indexing_seq)
+        incomp_reverse_primer.set_adapter_seq(rev_adapter_seq)
+
+        hg = HeteroGen(hetero_size, spacer_size)
+        hg.set_rigour(-5)
+        for_spacers = hg.get_all_spacer_combos(incomp_forward_primer
+                                               .get_binding_seq())
+        rev_spacers = hg.get_all_spacer_combos(incomp_reverse_primer
+                                               .get_binding_seq())
+
+        primers = hg.get_hetero_seqs(incomp_forward_primer,
+                                     incomp_reverse_primer,
+                                     for_spacers[1],
+                                     rev_spacers[1],
+                                     5)
+        assert len(primers) == 5
 
 
 """

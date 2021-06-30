@@ -1,5 +1,6 @@
 from typing import Any, List, Tuple, Dict, Iterable, Union
-from sequence_tools import get_max_complementarity
+from sequence_tools import get_max_complementarity, \
+    get_max_complementarity_consec
 from Bio.Seq import Seq
 
 FORWARD = "forward"
@@ -131,20 +132,44 @@ class MBPrimerBuilder:
                         self._binding_seq.__str__())
 
 
-def eval_self_binding(incomplete_primer: MBPrimerBuilder,
-                      spacers: Tuple[Seq]) -> int:
-    """Returns the max complementarity between any of <spacers> and any
-    <incomplete_primer> completed with a spacer in <spacers>."""
-    cmplmnt_lst = []
+def spacers_to_primers(incomplete_primer: MBPrimerBuilder,
+                       spacers: Tuple[Seq]) -> List[MBPrimer]:
+    """Completes the <incomplete_primer> with each of <spacers> and returns  a
+    list of the results."""
     primers = []
     for spacer in spacers:
         incomplete_primer.set_heterogen_seq(spacer)
         primers.append(incomplete_primer.get_MBPrimer())
+    return primers
+
+
+def eval_total_complementarity(incomplete_primer: MBPrimerBuilder,
+                               spacers: Tuple[Seq]) -> int:
+    """Returns the max complementarity between any of <spacers> and any
+    <incomplete_primer> completed with a spacer in <spacers>."""
+    cmplmnt_lst = []
+    primers = spacers_to_primers(incomplete_primer, spacers)
     for spacer in spacers:
         # Calculate max_comp for any forward primer and forward hetero.
         rev_hetero = spacer.__str__()[::-1]
         cmplmnt_lst.append(get_max_complementarity(Seq(rev_hetero),
                                                    primers))
+        # No need to reverse hetero seq when calculating binding to reverse
+        # primer.
+    return max(cmplmnt_lst)
+
+
+def eval_consecutive_complementarity(incomplete_primer: MBPrimerBuilder,
+                                     spacers: Tuple[Seq]) -> int:
+    """Returns the max complementarity between any of <spacers> and any
+    <incomplete_primer> completed with a spacer in <spacers>."""
+    cmplmnt_lst = []
+    primers = spacers_to_primers(incomplete_primer, spacers)
+    for spacer in spacers:
+        # Calculate max_comp for any forward primer and forward hetero.
+        rev_hetero = spacer.__str__()[::-1]
+        cmplmnt_lst.append(get_max_complementarity_consec(Seq(rev_hetero),
+                                                          primers))
         # No need to reverse hetero seq when calculating binding to reverse
         # primer.
     return max(cmplmnt_lst)
