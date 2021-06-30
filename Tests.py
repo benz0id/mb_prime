@@ -262,8 +262,6 @@ class TestSpacerAlignmentGen:
         assert sum(spacers[0]) < sum(spacers[-1]) and \
                max(spacers[0]) < max(spacers[-1])
 
-
-
     def test_get_all_spacer_combos_always_align(self):
         """When the heterogenity spacers are allowed to be as long as the
         heterogeneity region, there should always exist valid spacers."""

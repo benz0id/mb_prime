@@ -124,9 +124,7 @@ class SpacerAlignmentGen:
                                 seqs_spacers: List[int]) -> tuple[int, ...]:
         """Returns a tuple containing all spacers < <self.num_hetero> such
         that for all j + spacer < <self.num_hetero>, seq[j + spacer] != any
-        seqs[i][j]. Returns an empty tuple if no such spacers exist. TODO
-
-        """
+        seqs[i][j]. Returns an empty tuple if no such spacers exist."""
 
         valid_spacers = []
         # Assume that there exist no valid spacers less than the greatest
@@ -645,14 +643,17 @@ class HeteroGen:
         """Sets the rigour to the specified value."""
         self._primer_gen.set_rigour(rigour)
 
-    def get_all_spacer_combos(self, seq: Seq) -> List[
-        Tuple[int, int, int, int]]:
+    def get_all_spacer_combos(self, seq: Seq
+                              ) -> List[Tuple[int, int, int, int]]:
         """Given a <seq>, will provide a set of alignments of that sequence (
         produced by shifting it to the right) that ensures nucleotide
         diversity across the first <self.num_hetero> bases. Returns a list of
         tuples, each of which contain unique combinations of valid heterogeneity
-        spacer lengths."""
-        return self._alignment_gen.get_all_spacer_combos(seq)
+        spacer lengths. Will sort the alignments in order to provide shorter
+        spacers."""
+        aligns = self._alignment_gen.get_all_spacer_combos(seq)
+        self._alignment_gen.sort_spacer_combos(aligns)
+        return aligns
 
     def get_hetero_seqs(self, incomplete_forward_primer: MBPrimerBuilder,
                         incomplete_reverse_primer: MBPrimerBuilder,
@@ -669,8 +670,8 @@ class HeteroGen:
 
     def visualise_spacer_alignments(self,
                                     spacers: List[Tuple[int, int, int, int]],
-                                    seq: Seq) -> Dict[
-        int, Tuple[int, int, int, int]]:
+                                    seq: Seq) \
+            -> Dict[int, Tuple[int, int, int, int]]:
         """Displays a visual representation of all of the <spacers> for the
         given <seq>. Assumes a set of 4 spacers per tuple."""
         spacer_dict = {}
