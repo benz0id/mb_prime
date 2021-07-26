@@ -10,7 +10,7 @@ ABSOLUTE_MAX_NUM_HETERO = 50
 
 # === Random sampling defaults ===
 # The number of forward and reverse primers to compare against each other.
-NUMBER_TO_CROSS_COMPARE = 35
+NUM_PAIRINGS_TO_COMP = 35
 # The number of primers in the initial sets of potential primers.
 INITIAL_PRIMER_SET_SIZE = 1000
 

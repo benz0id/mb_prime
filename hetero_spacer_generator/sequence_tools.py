@@ -21,7 +21,7 @@ def iterate_seqs(oligo: Seq, seqs: Iterable[Seq],
             num_alignments = oligo_len - len(seq)
 
         for offset in range(0, num_alignments):
-            local_max_comp = get_site_complementarity(smaller_seq,
+            local_max_comp = comp_method(smaller_seq,
                                                       larger_seq, offset)
             if local_max_comp > max_comp:
                 max_comp = local_max_comp

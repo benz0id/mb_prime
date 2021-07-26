@@ -1,12 +1,62 @@
-from primer_tools import MBPrimerBuilder
-from typing import List, Union, Tuple
-from defaults import ABSOLUTE_MAX_NUM_HETERO, ABSOLUTE_MAX_SPACER_LENGTH
-from presenters import Presenter
+from hetero_spacer_generator.primer_tools import MBPrimerBuilder
+from typing import Union, Tuple
+from hetero_spacer_generator.defaults import ABSOLUTE_MAX_NUM_HETERO, \
+    ABSOLUTE_MAX_SPACER_LENGTH
 from time import sleep
+from hetero_spacer_generator.hetero_spacer_generator import HeteroGen
 
 STR = 'str'
 RANGE = 'ran'
 DNA = 'dna'
+
+
+def get_primer_and_spacers(hg: HeteroGen, direction: str) \
+        -> Tuple[MBPrimerBuilder, Tuple[int, int, int, int]]:
+    succ = False
+    spacers = []
+    incomplete_primer = MBPrimerBuilder()
+    while not succ:
+        print(
+            "Please enter below the components of your " + direction + " primer.\n"
+                                                                       "The adapter and binding regions are mandatory.\n")
+
+        incomplete_primer = get_incomplete_primer()
+
+        print(
+            "Please input the desired parameters for the construction of your "
+            + direction + " primers.")
+
+        spacer_length, num_hetero = get_params()
+        hg.set_params(spacer_length, num_hetero)
+
+        spacers = hg.get_all_spacer_combos(
+            incomplete_primer.get_binding_seq())[0:50]
+
+        if not spacers:
+            print(
+                "Failed to find a way in which to align the given sequences. Try"
+                " setting the max spacer length to a greater value.")
+        else:
+            succ = True
+
+    print("Spacers found. Press enter to select desired spacer combo.\n")
+
+    num_to_spacer = hg.visualise_spacer_alignments(spacers,
+                                                   incomplete_primer.
+                                                   get_binding_seq())
+
+    max_val = max(num_to_spacer.keys())
+
+    spacer_ind = while_not_valid(
+        "Enter the number of the primer alignment you'd "
+        "like to use:",
+        "Invalid input: Ensure the number you've entered "
+        "represents one of the primers displayed.\n "
+        "Enter the number of the primer alignment you'd "
+        "like to use:", RANGE, start=1, end=max_val)
+
+    spacer = num_to_spacer[int(spacer_ind)]
+    return incomplete_primer, spacer
 
 
 def valid_input(input: Union[int, str], mode: str, start: Union[int, str] = 0,
@@ -91,4 +141,3 @@ def print_dots(delay: int) -> None:
     while True:
         sleep(delay)
         print('.', end='')
-

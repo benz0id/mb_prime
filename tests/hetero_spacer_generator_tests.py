@@ -1,10 +1,18 @@
-import pytest
-from Bio.Seq import Seq
+from typing import Tuple
 
-from hetero_spacer_generator import _gen_sequence_array, _select_and_set
-from sequence_tools import *
-from hetero_spacer_generator import *
+import pytest
+
+from hetero_spacer_generator.hetero_spacer_generator import *
+from hetero_spacer_generator.primer_tools import *
+from hetero_spacer_generator.primer_types import *
+from hetero_spacer_generator.sequence_tools import *
 import random
+import hetero_spacer_generator.spacer_generator.random_spacer_generator as rsg
+from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
+    RandomSpacerGen, gen_hetero_set, gen_heterogeneity_spacers_rand, \
+    get_potential_bases, \
+    get_vacant_bases
+from hetero_spacer_generator.spacer_generator.spacer_filters import *
 
 LARGE_SAMPLE_SIZE = 100
 MED_SAMPLE_SIZE = 50
@@ -47,11 +55,11 @@ def ensure_valid_spacers(incomplete_primer: MBPrimerBuilder or Seq,
     """Ensures that the spacers produced by the given spacers will be valid. If
     """
     if type(incomplete_primer) == MBPrimerBuilder:
-        seq_arr = _gen_sequence_array(incomplete_primer.get_binding_seq(),
-                                      spacers)
+        seq_arr = rsg.gen_sequence_array(incomplete_primer.get_binding_seq(),
+                                         spacers)
     else:
-        seq_arr = _gen_sequence_array(incomplete_primer,
-                                      spacers)
+        seq_arr = rsg.gen_sequence_array(incomplete_primer,
+                                         spacers)
     return ensure_hetero_seq_arr(seq_arr, num_hetero)
 
 
@@ -67,24 +75,22 @@ def gen_random_seq(length: int) -> Seq:
 
 def gen_random_spacers(incomplete_forward_primer: MBPrimerBuilder,
                        incomplete_reverse_primer: MBPrimerBuilder,
-                       forward_spacer_seqs: List[Tuple[Seq]],
-                       reverse_spacer_seqs: List[Tuple[Seq]],
+                       forward_spacer_seqs: List[SpacerSet],
+                       reverse_spacer_seqs: List[SpacerSet],
                        forward_spacer: Tuple[int, int, int, int],
                        reverse_spacer: Tuple[int, int, int, int],
-                       num_to_generate: float) -> None:
+                       num_to_generate: int) -> None:
     """Empties <forward_spacer_seqs> and <reverse_spacer_seqs>, refilling them
     with <num_to_generate> randomly generated sets of heterogeneity spacers.
      Generated spacers with be based upon <incomplete_forward_primer> and
      <incomplete_reverse_primer>."""
     forward_spacer_seqs.clear()
     reverse_spacer_seqs.clear()
-    generic_rsg = RandomSpacerGen(12, 12, ConsolePresenter())
-    generic_rsg._random_per_align = num_to_generate
-    forward_spacers = generic_rsg._gen_hetero_set(incomplete_forward_primer,
-                                                  forward_spacer)
+    forward_spacers = gen_hetero_set(incomplete_forward_primer,
+                                     forward_spacer, num_to_generate)
     forward_spacer_seqs.extend(forward_spacers)
-    reverse_spacers = generic_rsg._gen_hetero_set(incomplete_reverse_primer,
-                                                  reverse_spacer)
+    reverse_spacers = gen_hetero_set(incomplete_reverse_primer,
+                                     reverse_spacer, num_to_generate)
     reverse_spacer_seqs.extend(reverse_spacers)
 
 
@@ -103,6 +109,7 @@ def gen_incomplete_primer(binding_len: int = 12):
     primer.set_binding_seq(gen_random_seq(binding_len))
     primer.set_index_seq(gen_random_seq(INDEX_LEN))
     return primer
+
 
 def gen_rand_spacer_aligns(num_primers: int, max_val: int) \
         -> List[Tuple[int, int, int, int]]:
@@ -140,9 +147,9 @@ class SeqFixtureManager:
     num_to_generate: int
 
     def __init__(self) -> None:
-        self.rsg4 = RandomSpacerGen(4, 4, ConsolePresenter())
-        self.rsg12 = RandomSpacerGen(12, 12, ConsolePresenter())
-        self.rsg_12_high_rigour = RandomSpacerGen(12, 12, ConsolePresenter(), 1)
+        self.rsg4 = RandomSpacerGen(4, 4)
+        self.rsg12 = RandomSpacerGen(12, 12)
+        self.rsg_12_high_rigour = RandomSpacerGen(12, 12, 1)
 
         self.incomplete_forward_primer = MBPrimerBuilder()
         self.incomplete_reverse_primer = MBPrimerBuilder()
@@ -239,6 +246,100 @@ def test_co_sort() -> None:
     assert lstc == ls and lstc1 == ls
 
 
+def test_co_sort_rev() -> None:
+    ls = [1, 2, 3, 4, 5, 6, 7]
+    lst = [2, 7, 1, 3, 5, 6, 4]
+    lst1 = [2, 7, 1, 3, 5, 6, 4]
+    lstc = lst[:]
+    lstc1 = lst1[:]
+
+    co_sort(lstc, lstc1, reverse=True)
+    assert lstc == ls[::-1] and lstc1 == ls[::-1]
+
+
+def test_co_insert() -> None:
+    vals = [1, 2, 3, 5, 6]
+    to_fol = [1, 1, 1, 1, 1]
+    val = 4
+    to_add = 0
+    co_insert(vals, to_fol, val, to_add)
+    assert vals == [1, 2, 3, 4, 5] and to_fol == [1, 1, 1, 0, 1]
+
+
+def test_co_insert_rev() -> None:
+    vals = [1, 2, 3, 5, 6][::-1]
+    to_fol = [1, 1, 1, 1, 1][::-1]
+    val = 4
+    to_add = 0
+    co_insert(vals, to_fol, val, to_add, reverse=True)
+    assert vals == [2, 3, 4, 5, 6][::-1] and to_fol == [1, 1, 0, 1, 1]
+
+
+def test_get_n_lowest_matrix() -> None:
+    scores = [[10, 10, 10, 6],
+              [10, 2, 10, 10],
+              [10, 3, 10, 4],
+              [5, 10, 10, 1]]
+    inds = [(3, 3), (1, 1), (2, 1), (2, 3), (3, 0), (0, 3)]
+    scrs = [1, 2, 3, 4, 5, 6]
+    rtrn_tup = get_n_lowest_matrix(scores, 6)
+    assert rtrn_tup == (inds, scrs)
+
+
+def test_get_n_lowest_matrix_highest() -> None:
+    scores = [[0, 0, 0, 6],
+              [0, 2, 0, 0],
+              [0, 3, 0, 4],
+              [5, 0, 0, 1]]
+    inds = [(3, 3), (1, 1), (2, 1), (2, 3), (3, 0), (0, 3)][::-1]
+    scrs = [1, 2, 3, 4, 5, 6][::-1]
+    assert get_n_lowest_matrix(scores, 6, highest=True) == (inds, scrs)
+
+
+def test_get_lowest() -> None:
+    scores = [4, 9, 1, 5, 8, 7, 2, 6, 3]
+    n = 4
+    inds = [2, 6, 8, 0]
+    scrs = [1, 2, 3, 4]
+    assert get_n_lowest(scores, n) == (inds, scrs)
+
+
+def test_get_lowest_rev() -> None:
+    scores = [4, 9, 1, 5, 8, 7, 2, 6, 3]
+    n = 4
+    inds = [1, 4, 5, 7]
+    scrs = [9, 8, 7, 6]
+    assert get_n_lowest(scores, n, highest=True) == (inds, scrs)
+
+
+def test_get_these_inds() -> None:
+    vals = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+            10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    inds = []
+    for i in range(10):
+        inds.append(random.choice(vals))
+    new_vals = get_these_inds(inds, vals)
+    for val in new_vals:
+        assert val == vals[val]
+
+
+def test_get_all_arrangements_basic() -> None:
+    lst = get_all_arrangements(4, 4)
+    assert len(lst) == 24
+
+
+def test_get_cross_iteration_pattern_basic() -> None:
+    matrix = [[1, 2, 3],
+              [4, 5, 6],
+              [7, 8, 9]]
+
+    for iteration in get_cross_iteration_pattern(len(matrix)):
+        total = 0
+        for indices in iteration:
+            total += matrix[indices[0]][indices[1]]
+        assert (total == 15)
+
+
 class TestSpacerAlignmentGen:
 
     def test_get_smallest_total_len_list(self):
@@ -316,17 +417,17 @@ class TestRandomBaseSelection:
 
     def test_gen_sequence_array(self) -> None:
 
-        assert _gen_sequence_array(Seq('ATCG'), (0, 1, 2, 3)) \
+        assert rsg.gen_sequence_array(Seq('ATCG'), (0, 1, 2, 3)) \
                == self.simple_seq_arr
 
         for _ in range(self.random_tests_to_run):
             seq = gen_random_seq(12)
             spacers = self.hg1._alignment_gen.get_all_spacer_combos(seq)
             for spacer in spacers:
-                _gen_sequence_array(seq, spacer)
+                rsg.gen_sequence_array(seq, spacer)
 
     def test_get_vacant_bases(self) -> None:
-        assert self.hg._primer_gen._get_vacant_bases((0, 1, 2, 3)) == [
+        assert get_vacant_bases((0, 1, 2, 3)) == [
             [1, 2, 3], [2, 3],
             [3], []]
 
@@ -334,13 +435,12 @@ class TestRandomBaseSelection:
             seq = gen_random_seq(12)
             spacers = self.hg1._alignment_gen.get_all_spacer_combos(seq)
             for spacer in spacers:
-                self.hg1._primer_gen._get_vacant_bases(spacer)
+                get_vacant_bases(spacer)
 
     def test_get_potential_bases(self):
 
         for i in range(4):
-            pbs = self.hg._primer_gen._get_potential_bases(self.simple_seq_arr,
-                                                           i)
+            pbs = get_potential_bases(self.simple_seq_arr, i)
             for j in range(4):
                 assert self.simple_seq_arr[j][i] not in pbs
 
@@ -351,8 +451,8 @@ class TestRandomBaseSelection:
         column = 0
         seq_arr = self.simple_seq_arr.copy()
         for i in range(3):
-            _select_and_set(potential_bases, unfilled_bases,
-                            column, seq_arr)
+            rsg.select_and_set(potential_bases, unfilled_bases,
+                               column, seq_arr)
             assert len(potential_bases) == 2 - i
             assert len(unfilled_bases[0]) == 2 - i
             for row in range(1, 4):
@@ -365,43 +465,41 @@ class TestRandomBaseSelection:
             self.test_gen_heterogeneity_spacer_rand()
             return
         for spacer_lengths in spacer_combos:
-            spacers = self.hg1._primer_gen._gen_heterogeneity_spacers_rand(seq,
-                                                                           spacer_lengths)
-            seq_arr = _gen_sequence_array(seq, spacer_lengths)
+            spacers = gen_heterogeneity_spacers_rand(seq, spacer_lengths)
+            seq_arr = rsg.gen_sequence_array(seq, spacer_lengths)
             for i in range(4):
                 for j in range(len(spacers[i])):
                     seq_arr[i][j] = spacers[i][j]
             assert ensure_hetero_seq_arr(seq_arr, len(seq_arr[0]) - 1)
 
     def test_remove_high_dimer_complementarity_basic(self) -> None:
-        """Tests whether _remove_high_dimer_complementarity produces a sample
+        """Tests whether remove_high_dimer_complementarity produces a sample
         with the correct output size"""
         sfm = SeqFixtureManager()
         sfm.num_to_generate = MED_SAMPLE_SIZE
         sfm.do_all()
-        rsg = RandomSpacerGen(12, 12, ConsolePresenter())
-        rsg._remove_high_dimer_complementarity(sfm.forward_spacer_seqs,
-                                               sfm.incomplete_forward_primer,
-                                               SMALL_SAMPLE_SIZE)
-        rsg._remove_high_dimer_complementarity(sfm.reverse_spacer_seqs,
-                                               sfm.incomplete_reverse_primer,
-                                               SMALL_SAMPLE_SIZE)
+        remove_high_dimer_complementarity(sfm.forward_spacer_seqs,
+                                          sfm.incomplete_forward_primer,
+                                          SMALL_SAMPLE_SIZE)
+        remove_high_dimer_complementarity(sfm.reverse_spacer_seqs,
+                                          sfm.incomplete_reverse_primer,
+                                          SMALL_SAMPLE_SIZE)
         assert len(sfm.forward_spacer_seqs) == \
                len(sfm.reverse_spacer_seqs) == SMALL_SAMPLE_SIZE
 
     def test_remove_high_dimer_complementarity_outprm_random(self) -> None:
-        """Tests whether the _remove_high_dimer_complementarity produces primers
+        """Tests whether the remove_high_dimer_complementarity produces primers
         with less binding than a random sampling."""
         sfm = SeqFixtureManager()
         sfm.num_to_generate = MED_SAMPLE_SIZE
         sfm.do_all()
-        rsg = RandomSpacerGen(12, 12, ConsolePresenter())
+        rsg = RandomSpacerGen(12, 12)
         rand_for_spacers = []
         for i in range(SMALL_SAMPLE_SIZE):
             rand_for_spacers.append(random.choice(sfm.forward_spacer_seqs))
-        rsg._remove_high_dimer_complementarity(sfm.forward_spacer_seqs,
-                                               sfm.incomplete_forward_primer,
-                                               SMALL_SAMPLE_SIZE)
+        remove_high_dimer_complementarity(sfm.forward_spacer_seqs,
+                                          sfm.incomplete_forward_primer,
+                                          SMALL_SAMPLE_SIZE)
         rand_scores = 0
         sorted_scores = 0
         for i in range(SMALL_SAMPLE_SIZE):
@@ -414,18 +512,17 @@ class TestRandomBaseSelection:
         assert rand_scores >= sorted_scores
 
     def test_remove_high_consec_complementarity_basic(self) -> None:
-        """Tests whether _remove_high_dimer_complementarity produces a sample with the
+        """Tests whether remove_high_dimer_complementarity produces a sample with the
         correct output size"""
         sfm = SeqFixtureManager()
         sfm.num_to_generate = MED_SAMPLE_SIZE
         sfm.do_all()
-        rsg = RandomSpacerGen(12, 12, ConsolePresenter())
-        rsg._remove_high_consec_complementarity(sfm.forward_spacer_seqs,
-                                                sfm.incomplete_forward_primer,
-                                                SMALL_SAMPLE_SIZE)
-        rsg._remove_high_consec_complementarity(sfm.reverse_spacer_seqs,
-                                                sfm.incomplete_reverse_primer,
-                                                SMALL_SAMPLE_SIZE)
+        remove_high_consec_complementarity(sfm.forward_spacer_seqs,
+                                           sfm.incomplete_forward_primer,
+                                           SMALL_SAMPLE_SIZE)
+        remove_high_consec_complementarity(sfm.reverse_spacer_seqs,
+                                           sfm.incomplete_reverse_primer,
+                                           SMALL_SAMPLE_SIZE)
         assert len(sfm.forward_spacer_seqs) == \
                len(sfm.reverse_spacer_seqs) == SMALL_SAMPLE_SIZE
 
@@ -433,8 +530,8 @@ class TestRandomBaseSelection:
         sfm = SeqFixtureManager()
         sfm.num_to_generate = MED_SAMPLE_SIZE
         sfm.do_all()
-        rsg = RandomSpacerGen(12, 12, ConsolePresenter())
-        rsg._filter_spacer_sets(sfm.incomplete_forward_primer,
+        sss = SortForSimultaneous(12, 12)
+        sss._filter_spacer_sets(sfm.incomplete_forward_primer,
                                 sfm.incomplete_reverse_primer,
                                 sfm.forward_spacer_seqs,
                                 sfm.reverse_spacer_seqs,
@@ -447,15 +544,15 @@ class TestRandomBaseSelection:
         input."""
         sfm = SeqFixtureManager()
         sfm.do_all()
-        rsg = RandomSpacerGen(12, 12)
+        sss = SortForSimultaneous(12, 12)
         numsets = 3
-        primer_sets = rsg._cross_compare(sfm.incomplete_forward_primer,
-                                         sfm.incomplete_reverse_primer,
-                                         sfm.forward_spacer_seqs[
-                                         0:SMALL_SAMPLE_SIZE],
-                                         sfm.reverse_spacer_seqs[
-                                         0:SMALL_SAMPLE_SIZE],
-                                         numsets)
+        primer_sets = cross_compare(sfm.incomplete_forward_primer,
+                                    sfm.incomplete_reverse_primer,
+                                    sfm.forward_spacer_seqs[
+                                    0:SMALL_SAMPLE_SIZE],
+                                    sfm.reverse_spacer_seqs[
+                                    0:SMALL_SAMPLE_SIZE],
+                                    numsets)
         assert len(primer_sets) == numsets
 
     def test_full_primer_creation_process(self):
@@ -493,6 +590,14 @@ class TestRandomBaseSelection:
         assert len(primers) == 5
 
 
+class TestPairwiseSorter:
+    sfm = SeqFixtureManager()
+    sfm.num_to_generate = MED_SAMPLE_SIZE
+    sfm.do_all()
+
+    pass
+
+
 """
     def test_remove_high_dimerisation(self) -> None:
 
@@ -500,4 +605,4 @@ class TestRandomBaseSelection:
     """
 
 if __name__ == '__main__':
-    pytest.main(['Tests.py'])
+    pytest.main(['tests/hetero_spacer_generator_tests.py', '-v'])
