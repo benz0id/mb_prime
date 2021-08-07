@@ -1,21 +1,21 @@
 import abc
 from abc import abstractmethod
-from typing import Callable, List, Tuple, Dict
-from ..primer_types import SimpleCriterion, PairWiseCriterionSingle, \
-    SpacerSet
+from typing import Callable, List, Dict
+from ..primer_types import SimpleCriterion, SpacerSet
 
-from hetero_spacer_generator.defaults import INITIAL_PRIMER_SET_SIZE, \
-    NUM_PAIRINGS_TO_COMP, NUM_SPACERS
+from hetero_spacer_generator.defaults import NUM_PAIRINGS_TO_COMP
 from hetero_spacer_generator.primer_tools import HalfSet, HeteroSeqTool, \
-    MBPrimerBuilder, MBPrimer, \
-    PrimerSet, add, eval_consecutive_complementarity, \
+    MBPrimerBuilder, PairWiseCriterionSingle, PairwisePrimerSet, PrimerSet, add, \
+    eval_consecutive_complementarity, \
     eval_total_complementarity, evaluate_heterogen_binding_cross, \
-    get_cross_iteration_pattern, get_n_lowest, get_n_lowest_matrix, \
+    get_all_arrangements, get_cross_iteration_pattern, get_n_lowest, \
+    get_n_lowest_matrix, \
     get_these_inds, remove_highest_scores
 
 # Intervals for clearing worst performing HalfSets in PairwiseSpacerSorter
 FIRST_INTERVAL = 3
 REMOVE_HALFSET_INTERVAL = 2
+
 
 class SpacerSorter(HeteroSeqTool, abc.ABC):
     """A class that sorts spacers based on some parameters.
@@ -38,42 +38,9 @@ class SpacerSorter(HeteroSeqTool, abc.ABC):
                                     num_to_return: int) -> List[PrimerSet]:
         pass
 
-
-def get_all_arrangements(num_states: int, num_positions: int):
-    """Gets all possibles arrangements of a list of length <num_positions> with
-    each value in the list being a unique number ST 0 =< n < num states
-    Returns a List containing tuples of possible combinations where
-    len(tuple) == num_positions"""
-
-    possible_states = []
-    arrangements = []
-    for i in range(num_states):
-        possible_states.append(i)
-    get_arrangements_recursive(possible_states, arrangements, [], 0,
-                               num_positions)
-    return arrangements
-
-
-def get_arrangements_recursive(possible_states: List[int],
-                               arrangements: List[Tuple[int]],
-                               arrangement: List[int],
-                               depth: int, target_depth: int) -> None:
-    """Adds one of <possible_states> to <arrangement>, will recurse until
-    <target_depth> is reached, adding an <arrangement> of length <target_depth>
-    to <arrangements>."""
-    if depth == target_depth:
-        arrangements.append(tuple(arrangement))
-        return
-
-    # Recurse for each possible state
-    for i in range(len(possible_states)):
-        next_arrangement = arrangement + [possible_states[i]]
-        next_possible_states = possible_states[:]
-        next_possible_states.pop(i)
-        next_depth = depth + 1
-        get_arrangements_recursive(next_possible_states, arrangements,
-                                   next_arrangement, next_depth, target_depth)
-    return
+    def set_num_pairings_to_compare(self, num_pairings: int) -> None:
+        """Sets <self._num_pairings_to_compare> to <num_pairings>."""
+        self._num_pairings_to_compare = num_pairings
 
 
 class SortForPairwise(SpacerSorter):
@@ -114,6 +81,9 @@ class SortForPairwise(SpacerSorter):
     _pair_criteria_weights:
             A dictionary mapping some criterion to its weight.(i.e. its relevant
             importance when evaluating primers.
+    _pair_criteria_weights_list:
+            A list of weights where _pair_criteria_weights_list[i] is the weight
+            of _pair_criteria[i]
 
     _pair_scores:
             A matrix mapping the indices of forward primers (i) and indices of
@@ -124,7 +94,16 @@ class SortForPairwise(SpacerSorter):
             A list of all potential primer arrangements, where for each
             primer_arrangement in _primer_arrangements and for any set of
             forward and reverse primers forward_primers[i] pairs with
-            reverse_primers[primer_arrangement[i]]."""
+            reverse_primers[primer_arrangement[i]].
+
+    _for_halfsets:
+            HalfSets constructed from the best forward SpacerSets.
+    _rev_halfsets:
+            HalfSets constructed from the best reverse SpacerSets.
+    _fullsets:
+            Full sets of primers constructed from the forward and reverse
+            halfsets.
+    """
 
     _rigour: int
 
@@ -142,6 +121,12 @@ class SortForPairwise(SpacerSorter):
 
     _pair_criteria: List[SimpleCriterion]
     _pair_criteria_weights: Dict[SimpleCriterion, int]
+    _pair_criteria_weights_list: List[int]
+
+    _for_halfsets: List[HalfSet]
+    _rev_halfsets: List[HalfSet]
+
+    _fullsets: List[List[PairwisePrimerSet]]
 
     def __init__(self, max_spacer_length: int, num_hetero: int,
                  rigour: int = 1) -> None:
@@ -188,9 +173,19 @@ class SortForPairwise(SpacerSorter):
         self._single_criteria = [
             # TODO fill me in
         ]
+        self._single_criteria_weights = {
+            # TODO fill me in
+        }
         self._pair_criteria = [
             # TODO fill me in
         ]
+        self._pair_criteria_weights = {
+            # TODO fill me in
+        }
+        self._pair_criteria_weights_list = []
+        for criterion in self._pair_criteria:
+            self._pair_criteria_weights_list.append(
+                self._pair_criteria_weights[criterion])
 
     def evaluate_scores_single(self):
         """Evaluates the scores of both the forward and reverse primers for each
@@ -226,7 +221,6 @@ class SortForPairwise(SpacerSorter):
         self._rev_seqs, self._rev_single_scores = \
             get_these_inds(best_rev_inds, self._rev_seqs), best_rev_scores
 
-
     def filter_and_make_primer_sets(self,
                                     incomplete_forward_primer: MBPrimerBuilder,
                                     incomplete_reverse_primer: MBPrimerBuilder,
@@ -241,42 +235,105 @@ class SortForPairwise(SpacerSorter):
         self.evaluate_scores_single()
         self.sort_and_trim()
 
+    def construct_half_sets(self) -> None:
+        """Returns (forward_halfset, reverse_halfset) constructed from the
+        forward and reverse primers and the sets of heterogeneity spacer
+        sequences."""
+        for for_primer_seqs in self._for_seqs:
+            self._for_halfsets.append(HalfSet(self._for_primer,
+                                              for_primer_seqs))
+        for rev_primer_seqs in self._rev_seqs:
+            self._rev_halfsets.append(HalfSet(self._rev_primer,
+                                              rev_primer_seqs))
+        return
 
-    def filter_primer_sets(self) -> None:
+    def construct_full_set_matrix(self) -> None:
+        """Constructs a matrix of PairwisePrimerSets from the lists of forward
+        and reverse HalfSets."""
+        self._fullsets = []
+        for f in range(self._num_pairings_to_compare):
+            self._fullsets.append([])
+            for r in range(self._num_pairings_to_compare):
+                self._fullsets[f].append(PairwisePrimerSet(
+                    self._for_halfsets[f], self._rev_halfsets[r]))
+        return
 
+    def _get_row_average(self, row: int) -> float:
+        """Gets the average of the scored fullsets in some <row> of
+        <self._fullsets>."""
+        sum_fullsets = 0
+        num = 0
+        for i in range(self._num_pairings_to_compare):
+            if self._fullsets[row][i].has_been_scored():
+                sum_fullsets += self._fullsets[row][i].get_min_pairing_score()
+                num += 1
+        return sum_fullsets / num
+
+    def _get_col_average(self, col: int) -> float:
+        """Gets the average of the scored fullsets in some column (<col>) of
+        <self._fullsets>."""
+        sum_fullsets = 0
+        num = 0
+        for i in range(self._num_pairings_to_compare):
+            if self._fullsets[i][col].has_been_scored():
+                sum_fullsets += self._fullsets[i][col].get_min_pairing_score()
+                num += 1
+        return sum_fullsets / num
+
+    def update_averages(self) -> None:
+        """Updates the averages of the HalfSets."""
+        for f in range(self._num_pairings_to_compare):
+            if self._for_halfsets[f].is_active():
+                self._for_halfsets[f].set_avg(self._get_row_average(f))
+
+        for r in range(self._num_pairings_to_compare):
+            if self._for_halfsets[r].is_active():
+                self._for_halfsets[r].set_avg(self._get_col_average(r))
+        return
+
+    def remove_worst_performing(self) -> None:
+        """Removes the worst performing HalfSet from both the forward and
+        reverse halfsets. """
+        for_scores = []
+        rev_scores = []
+        for i in range(self._num_pairings_to_compare):
+            for_scores.append(self._for_halfsets[i].get_avg())
+            rev_scores.append(self._rev_halfsets[i].get_avg())
+        worst_for_index = get_n_lowest(for_scores, 1, highest=True)[0][0]
+        worst_rev_index = get_n_lowest(rev_scores, 1, highest=True)[0][0]
+        self._for_halfsets[worst_for_index].deactivate()
+        self._rev_halfsets[worst_rev_index].deactivate()
+        return
+
+    def score_primer_sets(self) -> None:
+        """Creates and scores all combinations of
+        <self._num_pairings_to_compare> the forward and reverse primer sets."""
         self.construct_half_sets()
         self.construct_full_set_matrix()
         # Symmetric iteration pattern.
         iter_pttrn = get_cross_iteration_pattern(self._num_pairings_to_compare)
 
-        #
+        # Iterate through the full set. Is costly to evaluate set with criteria,
+        # so continually remove the worst performing ones.
         for i in range(self._num_pairings_to_compare):
+            # Remove worst scoring set after a given interval
             if i - FIRST_INTERVAL >= 0 \
-                and i - FIRST_INTERVAL % REMOVE_HALFSET_INTERVAL == 0:
+                    and i - FIRST_INTERVAL % REMOVE_HALFSET_INTERVAL == 0:
+                self.update_averages()
                 self.remove_worst_performing()
             for j in range(self._num_pairings_to_compare):
                 f, r = iter_pttrn[i][j]
+                # If sets are still active, do evaluation.
+                if self._for_halfsets[f].is_active() \
+                        and self._rev_halfsets[r].is_active():
+                    self._fullsets[f][r].apply_criteria(
+                        self._pair_criteria,
+                        self._pair_criteria_weights_list)
+
+    def construct_scores_matrix(self) -> List[List[float]]:
+        """Constructs a matrix containing the """
 
 
-
-
-    def construct_half_sets(self) -> Tuple[List[HalfSet], List[HalfSet]]:
-        """Returns (forward_halfset, reverse_halfset) constructed from the
-        forward and reverse primers and the sets of heterogeneity spacer
-        sequences."""
-        pass
-
-    def construct_full_set_matrix(self) -> None:
-        """Constructs a matrix of PairwisePrimerSets from the lists of forward
-        and reverse HalfSets."""
-        pass
-
-    def update_averages(self) -> None:
-        """Updates the averages of the HalfSets."""
-
-    def remove_worst_performing(self) -> None:
-        """Removes the worst performing HalfSets from the list of HalfSets to
-        use."""
 
 
 def remove_high_consec_complementarity(spacers: List[SpacerSet],

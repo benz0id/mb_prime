@@ -12,6 +12,7 @@ from hetero_spacer_generator.primer_tools import HeteroSeqTool, \
     IncompatibleSpacerError, MBPrimerBuilder, \
     PrimerSet
 from hetero_spacer_generator.primer_types import SpacerAlignment
+from hetero_spacer_generator.sequence_tools import remove_degen
 
 
 def get_vacant_bases(spacers: SpacerAlignment) -> List[List[int]]:
@@ -37,9 +38,11 @@ def get_potential_bases(sequence_array: List[List[str]],
         # The user entered a set of primers that do not guarantee
         # heterogeneity across the heterogeneity region.
         if sequence_array[i][column].isalnum() \
-                and sequence_array[i][column] not in possible_bases:
+                and sequence_array[i][column] not in possible_bases and \
+                sequence_array[i][column] != 'I':
             raise IncompatibleSpacerError()
-        elif sequence_array[i][column].isalnum():
+        elif sequence_array[i][column].isalnum() and \
+                sequence_array[i][column] != 'I':
             possible_bases.remove(sequence_array[i][column])
     return possible_bases
 
@@ -48,6 +51,8 @@ def gen_heterogeneity_spacers_rand(binding_seq: Seq,
                                    spacers: SpacerAlignment):
     """Returns a list of randomly generated valid heterogeneity spacers.
     When possible, avoids base repeats on same strand."""
+
+    binding_seq = remove_degen(binding_seq)
 
     sequence_array = gen_sequence_array(binding_seq, spacers)
     unfilled_bases = get_vacant_bases(spacers)
@@ -164,12 +169,14 @@ class RandomSpacerGen(HeteroSpacerGen):
         according to <rigour>. """
         if rigour >= 1:
             self._random_per_align = INITIAL_PRIMER_SET_SIZE * rigour
-            self._number_to_cross_compare = NUM_PAIRINGS_TO_COMP * rigour
+            self._spacer_sorter.set_num_pairings_to_compare(
+                NUM_PAIRINGS_TO_COMP * rigour)
         elif rigour < 1:
             self._random_per_align = int(INITIAL_PRIMER_SET_SIZE /
                                          -rigour)
-            self._number_to_cross_compare = int(NUM_PAIRINGS_TO_COMP /
-                                                -rigour)
+            self._spacer_sorter.set_num_pairings_to_compare(
+                int(NUM_PAIRINGS_TO_COMP /
+                    -rigour))
         elif rigour == 0:
             raise ValueError("Rigour cannot be equal to 0")
 

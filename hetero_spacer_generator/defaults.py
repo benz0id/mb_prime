@@ -21,3 +21,26 @@ GET_SMALLEST_TOTAL_LEN_DEFAULT = 1
 # of the size of get_smallest_total_len_list().
 GET_SMALLEST_OF_ANY_SPACER_DEFAULT = 4
 
+# Degenerate primers are enabled.
+DEGENERATE_PRIMERS = False
+
+DEGEN_TO_POSSIBLE = {
+    "A": "A",
+    "C": "C",
+    "T": "T",
+    "G": "G",
+    "U": "U",
+    "W": "AT",
+    "S": "CG",
+    "M": "AC",
+    "K": "GT",
+    "R": "AG",
+    "Y": "CT",
+    "B": "CGT",
+    "D": "AGT",
+    "H": "ACT",
+    "V": "ACG",
+    "N": "ACGT",
+    # Custom: To be ignored.
+    "I": ""
+}

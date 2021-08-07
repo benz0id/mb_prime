@@ -2,6 +2,8 @@
 from typing import List, Dict, Callable
 from Bio.Seq import Seq
 from hetero_spacer_generator.primer_tools import HeteroSeqTool, co_sort
+from hetero_spacer_generator.sequence_tools import compare_bases_can_ignore, \
+    remove_degen
 from hetero_spacer_generator.spacer_generator.random_spacer_generator import RandomSpacerGen
 from hetero_spacer_generator.primer_tools import MBPrimerBuilder, PrimerSet
 from presenters import Presenter, ConsolePresenter
@@ -86,6 +88,7 @@ class SpacerAlignmentGen(HeteroSeqTool):
 
         valid_spacer_combos = []
         spacers = []
+        seq = remove_degen(seq)
         self._get_all_compatible_spacers(seq, spacers, NUM_SPACERS,
                                          spacer_combo_list=valid_spacer_combos)
         return valid_spacer_combos
@@ -109,8 +112,8 @@ class SpacerAlignmentGen(HeteroSeqTool):
             # self.num_hetero
             trial_spacers = spacers.copy()
             trial_spacers.append(spacer)
-            self._get_all_compatible_spacers(seq, trial_spacers, target_length
-                                             , spacer_combo_list)
+            self._get_all_compatible_spacers(seq, trial_spacers, target_length,
+                                             spacer_combo_list)
         return None
 
     def _get_compatible_spacers(self, seq: Seq,
@@ -151,7 +154,8 @@ class SpacerAlignmentGen(HeteroSeqTool):
                 try:
                     original_spacer_base = seq[i + spacer - spacers[j]]
                     new_spacer_seq_base = seq[i]
-                    if original_spacer_base == new_spacer_seq_base:
+                    if compare_bases_can_ignore(original_spacer_base,
+                                                new_spacer_seq_base):
                         return False
                     # Sequence is shorter than heterogeneity region, spacer
                     # fails to push the sequence out of the heterogeneity

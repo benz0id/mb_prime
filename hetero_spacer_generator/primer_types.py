@@ -1,5 +1,4 @@
-from typing import Tuple, List, Callable
-from primer_tools import MBPrimerBuilder, MBPrimer
+from typing import Tuple, Callable
 from Bio.Seq import Seq
 
 
@@ -12,7 +11,6 @@ SpacerSet = Tuple[Seq, Seq, Seq, Seq]
 
 # Where <SpacersSets> is the set of all spacers seqs, <MBPrimerBuilder> is the
 # incomplete spacer. Returns a list of all scores.
-PairWiseCriterionSingle = Callable[[SpacerSet, MBPrimerBuilder], List[int]]
 # Similar to PairWiseCriterionSingle except that it evaluates traits between the
 # two sets and primers and returns a matrix. Forward primers come first both in
 # indexing the matrix and calling the functions.

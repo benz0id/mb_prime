@@ -1,13 +1,13 @@
 from abc import ABC
-from typing import Any, List, Tuple, Dict, Iterable, Union
+from typing import Any, Callable, List, Tuple, Dict, Iterable, Union
 
 from infinity import Infinity
 
-from hetero_spacer_generator.primer_types import SimpleCriterion
-from hetero_spacer_generator.sequence_tools import get_max_complementarity, \
+from hetero_spacer_generator.primer_types import SpacerSet, SimpleCriterion
+from hetero_spacer_generator.sequence_tools import SeqAnalyzer, \
+    get_max_complementarity, \
     get_max_complementarity_consec
 from Bio.Seq import Seq
-import spacer_generator.spacer_filters as spf
 
 FORWARD = "forward"
 REVERSE = "reverse"
@@ -17,18 +17,33 @@ DEFAULT_PS_TYPE = 'pai'
 PAIRWISE = 'pai'
 SIMULTANEOUS = 'sim'
 
-POSSIBLE_PAIRINGS = spf.get_all_arrangements(4, 4)
-
 # Lower values make variance a more important variable in score calculation
 # decisions
 VARIANCE_IMPORTANCE = 3
 
 
 class Primer(Seq):
-    """Basic methods common among all primers"""
+    """Basic methods common among all immutable primers"""
 
     def __init__(self, seq: str):
         super().__init__(seq)
+
+
+class HeteroSeqTool(ABC):
+    """A class that handles heterogeneity spacers.
+
+    --- Private Attributes ---
+    _max_spacer_length:
+            The maximum length of a spacer produced.
+    _num_hetero:
+            The length of the heterogeneity that should be ensured across."""
+
+    def __init__(self, max_spacer_length: int, num_hetero: int) -> None:
+        """Initialises the attributes to the values specified.
+        Precondition:
+            max_spacer_length >= num_hetero"""
+        self._max_spacer_length = max_spacer_length
+        self._num_hetero = num_hetero
 
 
 class MBPrimer(Primer):
@@ -56,17 +71,17 @@ class MBPrimer(Primer):
     _direction: str
 
     def __init__(self, adapter_seq: str, index_seq: str, heterogen_seq: str,
-                 primer_region: str) -> None:
+                 binding_seq: str) -> None:
         """Constructs a primer sequence with components in the following order:
         <adapter_seq> <index_seq> <heterogen_seq> <primer_region> with each of
         their sequences read left to right."""
         super().__init__(''.join([adapter_seq, index_seq, heterogen_seq,
-                                  primer_region]))
+                                  binding_seq]))
 
         self._adapter_seq = Seq(adapter_seq)
         self._index_seq = Seq(index_seq)
         self._heterogen_seq = Seq(heterogen_seq)
-        self._binding_seq = Seq(primer_region)
+        self._binding_seq = Seq(binding_seq)
 
     def get_adapter_seq(self) -> Seq:
         """Returns adapter_seq."""
@@ -83,6 +98,10 @@ class MBPrimer(Primer):
     def get_binding_seq(self) -> Seq:
         """Returns binding_seq."""
         return self._binding_seq
+
+    def get_heterogen_seq_ind(self) -> int:
+        """Returns the index of the first base of the heterogeneity sequence."""
+        return len(self._adapter_seq)
 
 
 class MBPrimerBuilder:
@@ -108,6 +127,20 @@ class MBPrimerBuilder:
     _heterogen_seq: Seq
     _binding_seq: Seq
 
+    def __init__(self, adapter_seq: Seq = Seq(''), index_seq: Seq = Seq(''),
+                 heterogen_seq: Seq = Seq(''), binding_seq: Seq = Seq('')) \
+            -> None:
+        """Initialises this MBPrimerBuilder with empty seqs unless specified."""
+        self._adapter_seq = adapter_seq
+        self._index_seq = index_seq
+        self._heterogen_seq = heterogen_seq
+        self._binding_seq = binding_seq
+
+    def get_seq(self) -> Seq:
+        """Returns a seq representation of this primer."""
+        return Seq(''.join([self._adapter_seq[:], self._index_seq[:],
+                            self._heterogen_seq[:], self._binding_seq[:]]))
+
     def set_adapter_seq(self, seq: Union[Seq, str]) -> None:
         """Sets adapter_seq to <seq>."""
         self._adapter_seq = Seq(str(seq))
@@ -119,6 +152,10 @@ class MBPrimerBuilder:
     def set_heterogen_seq(self, seq: Union[Seq, str]) -> None:
         """Sets heterogen_seq to <seq>."""
         self._heterogen_seq = Seq(str(seq))
+
+    def get_heterogen_seq_ind(self) -> int:
+        """Returns the index of the first base of the heterogeneity sequence."""
+        return len(self._adapter_seq)
 
     def set_binding_seq(self, seq: Union[Seq, str]) -> None:
         """Sets binding_seq to <seq>."""
@@ -140,12 +177,37 @@ class MBPrimerBuilder:
         """Returns binding_seq."""
         return self._binding_seq
 
-    def get_MBPrimer(self) -> MBPrimer:
+    def get_mbprimer(self) -> MBPrimer:
         """Returns a completed version of this primer."""
         return MBPrimer(self._adapter_seq.__str__(),
                         self._index_seq.__str__(),
                         self._heterogen_seq.__str__(),
                         self._binding_seq.__str__())
+
+
+class EvalMBPrimer(SeqAnalyzer, HeteroSeqTool):
+    """A class designed to evaluate the characteristics of MBPrimers"""
+
+    _forward_primer: MBPrimerBuilder
+    _rev_primer: MBPrimerBuilder
+
+    def __init__(self, max_spacer_length: int, num_hetero: int):
+        SeqAnalyzer.__init__(self)
+        HeteroSeqTool.__init__(self, max_spacer_length, num_hetero)
+
+    def eval_inherent_heterodimer(self, forward_primer: MBPrimerBuilder,
+                                  reverse_primer: MBPrimerBuilder) -> int:
+        pass
+
+    def eval_inherent_homodimer(self, primer: MBPrimerBuilder) -> int:
+        pass
+
+    def eval_homo_hetero_binding(self, primer: MBPrimer) -> int:
+        pass
+
+    def eval_hetero_hetero_binding(self, forward_primer: MBPrimer,
+                                   rev_primer: MBPrimer) -> int:
+        pass
 
 
 def spacers_to_primers(incomplete_primer: MBPrimerBuilder,
@@ -155,7 +217,7 @@ def spacers_to_primers(incomplete_primer: MBPrimerBuilder,
     primers = []
     for spacer in spacers:
         incomplete_primer.set_heterogen_seq(spacer)
-        primers.append(incomplete_primer.get_MBPrimer())
+        primers.append(incomplete_primer.get_mbprimer())
     return primers
 
 
@@ -226,10 +288,8 @@ class HalfSet:
             A set of valid Metabarcoding primers"""
 
     primers: Tuple[MBPrimer, MBPrimer, MBPrimer, MBPrimer]
-
     _average_score: float
     _num_scores: int
-
     _is_active: bool
 
     def __init__(self, incomplete_primer: MBPrimerBuilder,
@@ -242,7 +302,7 @@ class HalfSet:
         primers = []
         for spacer in spacers:
             incomplete_primer.set_heterogen_seq(spacer)
-            primers.append(incomplete_primer.get_MBPrimer())
+            primers.append(incomplete_primer.get_mbprimer())
         incomplete_primer.set_heterogen_seq(Seq(''))
         self.primers = (primers[0], primers[1], primers[2], primers[3])
 
@@ -251,8 +311,22 @@ class HalfSet:
         return iter(self.primers)
 
     def deactivate(self) -> None:
-        """Deactivates this HalfSet"""
+        """Deactivates this HalfSet."""
         self._is_active = False
+        self._average_score = 0
+
+    def is_active(self) -> bool:
+        """Returns whether this halfset is still active."""
+        return self._is_active
+
+    def get_avg(self) -> float:
+        """Returns the average score of this set."""
+        return self._average_score
+
+    def set_avg(self, new_avg: float) -> None:
+        """Sets the average to the given value"""
+        self._average_score = new_avg
+        return
 
     def reset_avg(self) -> None:
         """Resets the values associated with calculating this HalfSets avg
@@ -273,10 +347,6 @@ class HalfSet:
             self._average_score = self._average_score * \
                                   old_score / self._num_scores + \
                                   new_score / self._num_scores
-
-    def get_avg(self) -> float:
-        """Returns the average score produced by this HalfSet."""
-        return self._average_score
 
 
 def evaluate_heterogen_binding_cross(forward_primers: HalfSet,
@@ -347,12 +417,17 @@ class PrimerSet:
 SpacerPairing = Tuple[int, int, int, int]
 
 
-def calculate_score(scores: List[int, int, int, int]) -> int:
+def calculate_score(scores: Tuple[int, ...]) -> int:
     """Calculates the average score of <scores>, increasing the score for if
     <scores> has high variance."""
     variance = max(scores) - min(scores)
-    avg = sum(scores) / 4
-    return int(avg * variance / 3)
+    avg = sum(scores) / len(scores)
+    return int(avg * variance / VARIANCE_IMPORTANCE)
+
+
+# Where <SpacersSets> is the set of all spacers seqs, <MBPrimerBuilder> is the
+# incomplete spacer. Returns a list of all scores.
+PairWiseCriterionSingle = Callable[[SpacerSet, MBPrimerBuilder], List[int]]
 
 
 class PairwisePrimerSet(PrimerSet):
@@ -366,10 +441,13 @@ class PairwisePrimerSet(PrimerSet):
             The scores produced by the given pairings of primers.
     _min_pairing_score:
             The best score produced by any pairing.
+    _has_been_scored:
+            True iff this set has been evaluated by criteria.
     """
     _optimal_pairing: SpacerPairing
     _pairing_scores: Dict[SpacerPairing, int]
     _min_pairing_score: int
+    _been_scored: bool
 
     def __init__(self, forward_primers: Iterable[MBPrimer] = (),
                  reverse_primers: Iterable[MBPrimer] = ()) -> None:
@@ -378,6 +456,7 @@ class PairwisePrimerSet(PrimerSet):
         self._optimal_pairing = (0, 1, 2, 3)
         self._pairing_scores = {}
         self._min_pairing_score = 0
+        self._been_scored = False
 
         for pairing in POSSIBLE_PAIRINGS:
             self._pairing_scores[pairing] = 0
@@ -396,6 +475,14 @@ class PairwisePrimerSet(PrimerSet):
                        R3=self._optimal_pairing[2],
                        R4=self._optimal_pairing[3], )
         return str_rep
+
+    def get_min_pairing_score(self) -> int:
+        """Gets the minimum pairing score of this set."""
+        return self._min_pairing_score
+
+    def has_been_scored(self) -> bool:
+        """Returns whether this set has been scored."""
+        return self._been_scored
 
     def apply_criteria(self, criteria: List[SimpleCriterion],
                        weights: List[int]) -> int:
@@ -423,7 +510,9 @@ class PairwisePrimerSet(PrimerSet):
             for i in range(4):
                 scores.append(criterion(self._forward_primers[i],
                                         self._reverse_primers[pairing[i]]))
-            self._pairing_scores[pairing] += calculate_score(scores) * weight
+            self._pairing_scores[pairing] += calculate_score(tuple(scores)) \
+                                             * weight
+        self._been_scored = True
 
 
 def co_sort(to_sort: List[int], to_follow: List[Any], reverse: bool = False) \
@@ -459,6 +548,46 @@ def co_insert(values: List[int], to_follow: List[Any],
             return
 
 
+def get_arrangements_recursive(possible_states: List[int],
+                               arrangements: List[Tuple[int]],
+                               arrangement: List[int],
+                               depth: int, target_depth: int) -> None:
+    """Adds one of <possible_states> to <arrangement>, will recurse until
+    <target_depth> is reached, adding an <arrangement> of length <target_depth>
+    to <arrangements>."""
+    if depth == target_depth:
+        arrangements.append(tuple(arrangement))
+        return
+
+    # Recurse for each possible state
+    for i in range(len(possible_states)):
+        next_arrangement = arrangement + [possible_states[i]]
+        next_possible_states = possible_states[:]
+        next_possible_states.pop(i)
+        next_depth = depth + 1
+        get_arrangements_recursive(next_possible_states, arrangements,
+                                   next_arrangement, next_depth, target_depth)
+    return
+
+
+def get_all_arrangements(num_states: int, num_positions: int):
+    """Gets all possibles arrangements of a list of length <num_positions> with
+    each value in the list being a unique number ST 0 =< n < num states
+    Returns a List containing tuples of possible combinations where
+    len(tuple) == num_positions"""
+
+    possible_states = []
+    arrangements = []
+    for i in range(num_states):
+        possible_states.append(i)
+    get_arrangements_recursive(possible_states, arrangements, [], 0,
+                               num_positions)
+    return arrangements
+
+
+POSSIBLE_PAIRINGS = get_all_arrangements(4, 4)
+
+
 def add(dic: Dict[Any, List[Any]], key: Any, item: Any) -> None:
     """Adds <item> to the <dic> with <key> if <key> already maps to a list, else
      creates a list at <key> and adds <item> to it."""
@@ -466,23 +595,6 @@ def add(dic: Dict[Any, List[Any]], key: Any, item: Any) -> None:
         dic[key].append(item)
     else:
         dic[key] = [item]
-
-
-class HeteroSeqTool(ABC):
-    """A class that handles heterogeneity spacers.
-
-    --- Private Attributes ---
-    _max_spacer_length:
-            The maximum length of a spacer produced.
-    _num_hetero:
-            The length of the heterogeneity that should be ensured across."""
-
-    def __init__(self, max_spacer_length: int, num_hetero: int) -> None:
-        """Initialises the attributes to the values specified.
-        Precondition:
-            max_spacer_length >= num_hetero"""
-        self._max_spacer_length = max_spacer_length
-        self._num_hetero = num_hetero
 
 
 def get_n_lowest_matrix(scores: List[List[int]],
@@ -522,7 +634,7 @@ def get_n_lowest_matrix(scores: List[List[int]],
     return min_items, min_scores
 
 
-def get_n_lowest(scores: List[int], n: int, highest: bool = False) \
+def get_n_lowest(scores: List[Union[int, float]], n: int, highest: bool = False) \
         -> Tuple[List[int], List[int]]:
     """Returns a tuple containing [0]: a list of the indices of the <n> lowest
     scores in scores, [1]: a list of those scores. Iff <highest>,
