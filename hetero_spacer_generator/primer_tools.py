@@ -1,9 +1,9 @@
 from abc import ABC
-from typing import Any, Callable, List, Tuple, Dict, Iterable, Union
+from typing import Any, Callable, Collection, Iterator, List, Tuple, Dict, \
+    Iterable, Union
 
 from infinity import Infinity
 
-from hetero_spacer_generator.primer_types import SpacerSet, SimpleCriterion
 from hetero_spacer_generator.sequence_tools import SeqAnalyzer, \
     get_max_complementarity, \
     get_max_complementarity_consec
@@ -60,6 +60,10 @@ class MBPrimer(Primer):
             The specific binding region.
     _direction:
             Primers are either "forward" or "reverse".
+    _3p_len:
+            The length of the region downstream of the heterogeneity spacer.
+    _5p_len:
+            The length of the region upstream of the heterogeneity spacer.
 
     On Directionality:
             The sequence of the primer will be given in the 5'-3' direction.
@@ -69,6 +73,8 @@ class MBPrimer(Primer):
     _heterogen_seq: Seq
     _binding_seq: Seq
     _direction: str
+    _3p_len: int
+    _5p_len: int
 
     def __init__(self, adapter_seq: str, index_seq: str, heterogen_seq: str,
                  binding_seq: str) -> None:
@@ -82,6 +88,8 @@ class MBPrimer(Primer):
         self._index_seq = Seq(index_seq)
         self._heterogen_seq = Seq(heterogen_seq)
         self._binding_seq = Seq(binding_seq)
+        self._5p_len = len(adapter_seq) + len(index_seq)
+        self._3p_len = len(binding_seq)
 
     def get_adapter_seq(self) -> Seq:
         """Returns adapter_seq."""
@@ -103,8 +111,25 @@ class MBPrimer(Primer):
         """Returns the index of the first base of the heterogeneity sequence."""
         return len(self._adapter_seq)
 
+    def get_5p(self) -> Seq:
+        """Returns the sequence to the 5' end of the heterogeneity spacer."""
+        return Seq(''.join([self._adapter_seq.__str__(),
+                            self._index_seq.__str__()]))
 
-class MBPrimerBuilder:
+    def get_3p(self) -> Seq:
+        """Returns the sequence to the 3' end of the heterogeneity spacer."""
+        return self._binding_seq
+
+    def get_5p_len(self) -> int:
+        """Returns the sequence to the 5' end of the heterogeneity spacer."""
+        return self._5p_len
+
+    def get_3p_len(self) -> int:
+        """Returns the sequence to the 3' end of the heterogeneity spacer."""
+        return self._3p_len
+
+
+class MBPrimerBuilder(Iterable):
     """Stores the attributes of a primer used in two step PCR for metabarcoding.
 
     === Private Attributes ===
@@ -122,10 +147,13 @@ class MBPrimerBuilder:
     On Directionality:
             The sequence of the primer will be given in the 5'-3' direction.
     """
+
     _adapter_seq: Seq
     _index_seq: Seq
     _heterogen_seq: Seq
     _binding_seq: Seq
+    _inherent_consec: int
+    _inherent_total: int
 
     def __init__(self, adapter_seq: Seq = Seq(''), index_seq: Seq = Seq(''),
                  heterogen_seq: Seq = Seq(''), binding_seq: Seq = Seq('')) \
@@ -135,6 +163,10 @@ class MBPrimerBuilder:
         self._index_seq = index_seq
         self._heterogen_seq = heterogen_seq
         self._binding_seq = binding_seq
+
+    def __iter__(self) -> Iterator[Seq]:
+        return [self._adapter_seq, self._index_seq, self._heterogen_seq,
+                self._binding_seq].__iter__()
 
     def get_seq(self) -> Seq:
         """Returns a seq representation of this primer."""
@@ -177,6 +209,15 @@ class MBPrimerBuilder:
         """Returns binding_seq."""
         return self._binding_seq
 
+    def get_5p(self) -> Seq:
+        """Returns the sequence to the 5' end of the heterogeneity spacer."""
+        return Seq(''.join([self._adapter_seq.__str__(),
+                            self._index_seq.__str__()]))
+
+    def get_3p(self) -> Seq:
+        """Returns the sequence to the 3' end of the heterogeneity spacer."""
+        return self._binding_seq
+
     def get_mbprimer(self) -> MBPrimer:
         """Returns a completed version of this primer."""
         return MBPrimer(self._adapter_seq.__str__(),
@@ -185,29 +226,105 @@ class MBPrimerBuilder:
                         self._binding_seq.__str__())
 
 
+SimpleCriterion = Callable[[MBPrimer, MBPrimer], int]
+
+
 class EvalMBPrimer(SeqAnalyzer, HeteroSeqTool):
     """A class designed to evaluate the characteristics of MBPrimers"""
 
     _forward_primer: MBPrimerBuilder
     _rev_primer: MBPrimerBuilder
 
-    def __init__(self, max_spacer_length: int, num_hetero: int):
-        SeqAnalyzer.__init__(self)
+    def __init__(self, max_spacer_length: int, num_hetero: int,
+                 degen: bool = None):
+        SeqAnalyzer.__init__(self, degen)
         HeteroSeqTool.__init__(self, max_spacer_length, num_hetero)
 
-    def eval_inherent_heterodimer(self, forward_primer: MBPrimerBuilder,
+    def eval_inherent_heterodimer_consec(self, forward_primer: MBPrimerBuilder,
                                   reverse_primer: MBPrimerBuilder) -> int:
-        pass
+        """Returns the greatest number consecutively complementary bases between
+        the components of the <forward_primer> and <reverse_primer> external to
+        the heterogeneity spacer."""
+        forward_regions = [forward_primer.get_5p(), forward_primer.get_3p()]
 
-    def eval_inherent_homodimer(self, primer: MBPrimerBuilder) -> int:
-        pass
+        # Change reverse regions to 3' - 5' to allow for comparison.
+        reverse_regions = [rev_seq(reverse_primer.get_5p()),
+                           rev_seq(reverse_primer.get_3p())]
+        comp_method = self.get_consec_complementarity
+        scores = []
+        for for_region in forward_regions:
+            for rev_region in reverse_regions:
+                scores.append(
+                    self.comp_seqs_any_overlap(for_region, rev_region,
+                                               comp_method))
+        return max(scores)
 
-    def eval_homo_hetero_binding(self, primer: MBPrimer) -> int:
-        pass
+    def eval_inherent_homodimer_consec(self, primer: MBPrimerBuilder) -> int:
+        """Returns the greatest number consecutively complementary bases between
+        the components of the <forward_primer> external to the heterogeneity
+        spacer."""
+        return self.eval_inherent_heterodimer_consec(primer, primer)
 
-    def eval_hetero_hetero_binding(self, forward_primer: MBPrimer,
+    def eval_homo_hetero_spacer_binding_consec(self, primer: MBPrimer) -> int:
+        """Evaluates the ability of <primer>'s heterogeneity spacer to form
+        consecutive bonds with itself."""
+        f_skip = r_skip = min(len(primer.get_5p()), len(primer.get_3p()))
+        rev_primer_seq = rev_seq(primer)
+        return self.comp_seqs_any_overlap(primer, rev_primer_seq,
+                                          self.get_consec_complementarity,
+                                          f_skip, r_skip)
+
+    def eval_hetero_hetero_spacer_binding_consec(self, for_primer: MBPrimer,
                                    rev_primer: MBPrimer) -> int:
-        pass
+        f_skip = min(for_primer.get_5p_len(), rev_primer.get_5p_len())
+        r_skip = min(for_primer.get_3p_len(), rev_primer.get_3p_len())
+        return self.comp_seqs_any_overlap(for_primer, rev_primer,
+                                          self.get_consec_complementarity,
+                                          f_skip, r_skip)
+
+    def eval_inherent_heterodimer_total(self, forward_primer: MBPrimerBuilder,
+                                         reverse_primer: MBPrimerBuilder) -> int:
+        """Returns the greatest number consecutively complementary bases between
+        the components of the <forward_primer> and <reverse_primer> external to
+        the heterogeneity spacer."""
+        forward_regions = [forward_primer.get_5p(), forward_primer.get_3p()]
+
+        # Change reverse regions to 3' - 5' to allow for comparison.
+        reverse_regions = [rev_seq(reverse_primer.get_5p()),
+                           rev_seq(reverse_primer.get_3p())]
+        comp_method = self.get_non_consec_complementarity
+        scores = []
+        for for_region in forward_regions:
+            for rev_region in reverse_regions:
+                scores.append(
+                    self.comp_seqs_any_overlap(for_region, rev_region,
+                                               comp_method))
+        return max(scores)
+
+    def eval_inherent_homodimer_total(self, primer: MBPrimerBuilder) -> int:
+        """Returns the greatest number complementary bases between
+        the components of the <forward_primer> external to the heterogeneity
+        spacer."""
+        return self.eval_inherent_heterodimer_consec(primer, primer)
+
+    def eval_homo_hetero_spacer_binding_total(self, primer: MBPrimer) -> int:
+        """Evaluates the ability of <primer>'s heterogeneity spacer to form
+        bonds with itself."""
+        f_skip = r_skip = min(len(primer.get_5p()), len(primer.get_3p()))
+        rev_primer_seq = rev_seq(primer)
+        return self.comp_seqs_any_overlap(primer, rev_primer_seq,
+                                          self.get_non_consec_complementarity,
+                                          f_skip, r_skip)
+
+    def eval_hetero_hetero_spacer_binding_total(self, for_primer: MBPrimer,
+                                                 rev_primer: MBPrimer) -> int:
+        """Evaluates the ability of <primer>'s heterogeneity spacer to form
+        bonds with itself."""
+        f_skip = min(for_primer.get_5p_len(), rev_primer.get_5p_len())
+        r_skip = min(for_primer.get_3p_len(), rev_primer.get_3p_len())
+        return self.comp_seqs_any_overlap(for_primer, rev_primer,
+                                          self.get_non_consec_complementarity,
+                                          f_skip, r_skip)
 
 
 def spacers_to_primers(incomplete_primer: MBPrimerBuilder,
@@ -219,38 +336,6 @@ def spacers_to_primers(incomplete_primer: MBPrimerBuilder,
         incomplete_primer.set_heterogen_seq(spacer)
         primers.append(incomplete_primer.get_mbprimer())
     return primers
-
-
-def eval_total_complementarity(incomplete_primer: MBPrimerBuilder,
-                               spacers: Tuple[Seq, Seq, Seq, Seq]) -> int:
-    """Returns the max complementarity between any of <spacers> and any
-    <incomplete_primer> completed with a spacer in <spacers>."""
-    cmplmnt_lst = []
-    primers = spacers_to_primers(incomplete_primer, spacers)
-    for spacer in spacers:
-        # Calculate max_comp for any forward primer and forward hetero.
-        rev_hetero = spacer.__str__()[::-1]
-        cmplmnt_lst.append(get_max_complementarity(Seq(rev_hetero),
-                                                   primers))
-        # No need to reverse hetero seq when calculating binding to reverse
-        # primer.
-    return max(cmplmnt_lst)
-
-
-def eval_consecutive_complementarity(incomplete_primer: MBPrimerBuilder,
-                                     spacers: Tuple[Seq, Seq, Seq, Seq]) -> int:
-    """Returns the max complementarity between any of <spacers> and any
-    <incomplete_primer> completed with a spacer in <spacers>."""
-    cmplmnt_lst = []
-    primers = spacers_to_primers(incomplete_primer, spacers)
-    for spacer in spacers:
-        # Calculate max_comp for any forward primer and forward hetero.
-        rev_hetero = spacer.__str__()[::-1]
-        cmplmnt_lst.append(get_max_complementarity_consec(Seq(rev_hetero),
-                                                          primers))
-        # No need to reverse hetero seq when calculating binding to reverse
-        # primer.
-    return max(cmplmnt_lst)
 
 
 def remove_highest_scores(lst: List[Any], scores_dict: Dict[int, List[int]],
@@ -349,30 +434,6 @@ class HalfSet:
                                   new_score / self._num_scores
 
 
-def evaluate_heterogen_binding_cross(forward_primers: HalfSet,
-                                     reverse_primers: HalfSet) -> int:
-    """Returns the max site complementarity between the heterogeneity
-    sequences in <forward_primers> and the <reverse_primers> and visa versa. """
-    max_comp = 0
-
-    # Calculate the maximum complementarity between any of the reverse and
-    # forward primers
-    for primer in forward_primers:
-        comp = get_max_complementarity(primer.get_heterogen_seq(),
-                                       reverse_primers)
-        if comp > max_comp:
-            max_comp = comp
-
-    # Same process for reverse primers
-    for primer in reverse_primers:
-        comp = get_max_complementarity(primer.get_heterogen_seq(),
-                                       forward_primers)
-        if comp > max_comp:
-            max_comp = comp
-
-    return max_comp
-
-
 class PrimerSet:
     """A set of MBPrimers.
     === Private Attributes ===
@@ -416,9 +477,8 @@ class PrimerSet:
 
 SpacerPairing = Tuple[int, int, int, int]
 
-
-def calculate_score(scores: Tuple[int, ...]) -> int:
-    """Calculates the average score of <scores>, increasing the score for if
+def calculate_score(scores: Collection[int]) -> int:
+    """Calculates the average score of <scores>, increasing the score if
     <scores> has high variance."""
     variance = max(scores) - min(scores)
     avg = sum(scores) / len(scores)
@@ -427,7 +487,7 @@ def calculate_score(scores: Tuple[int, ...]) -> int:
 
 # Where <SpacersSets> is the set of all spacers seqs, <MBPrimerBuilder> is the
 # incomplete spacer. Returns a list of all scores.
-PairWiseCriterionSingle = Callable[[SpacerSet, MBPrimerBuilder], List[int]]
+PairWiseCriterionSingle = Callable[[MBPrimer], int]
 
 
 class PairwisePrimerSet(PrimerSet):
@@ -510,10 +570,65 @@ class PairwisePrimerSet(PrimerSet):
             for i in range(4):
                 scores.append(criterion(self._forward_primers[i],
                                         self._reverse_primers[pairing[i]]))
-            self._pairing_scores[pairing] += calculate_score(tuple(scores)) \
+            self._pairing_scores[pairing] += calculate_score(scores) \
                                              * weight
         self._been_scored = True
 
+
+def eval_total_complementarity(incomplete_primer: MBPrimerBuilder,
+                               spacers: Tuple[Seq, Seq, Seq, Seq]) -> int:
+    """Returns the max complementarity between any of <spacers> and any
+    <incomplete_primer> completed with a spacer in <spacers>."""
+    cmplmnt_lst = []
+    primers = spacers_to_primers(incomplete_primer, spacers)
+    for spacer in spacers:
+        # Calculate max_comp for any forward primer and forward hetero.
+        rev_hetero = spacer.__str__()[::-1]
+        cmplmnt_lst.append(get_max_complementarity(Seq(rev_hetero),
+                                                   primers))
+        # No need to reverse hetero seq when calculating binding to reverse
+        # primer.
+    return max(cmplmnt_lst)
+
+
+def eval_consecutive_complementarity(incomplete_primer: MBPrimerBuilder,
+                                     spacers: Tuple[Seq, Seq, Seq, Seq]) -> int:
+    """Returns the max complementarity between any of <spacers> and any
+    <incomplete_primer> completed with a spacer in <spacers>."""
+    cmplmnt_lst = []
+    primers = spacers_to_primers(incomplete_primer, spacers)
+    for spacer in spacers:
+        # Calculate max_comp for any forward primer and forward hetero.
+        rev_hetero = spacer.__str__()[::-1]
+        cmplmnt_lst.append(get_max_complementarity_consec(Seq(rev_hetero),
+                                                          primers))
+        # No need to reverse hetero seq when calculating binding to reverse
+        # primer.
+    return max(cmplmnt_lst)
+
+
+def evaluate_heterogen_binding_cross(forward_primers: HalfSet,
+                                     reverse_primers: HalfSet) -> int:
+    """Returns the max site complementarity between the heterogeneity
+    sequences in <forward_primers> and the <reverse_primers> and visa versa. """
+    max_comp = 0
+
+    # Calculate the maximum complementarity between any of the reverse and
+    # forward primers
+    for primer in forward_primers:
+        comp = get_max_complementarity(primer.get_heterogen_seq(),
+                                       reverse_primers)
+        if comp > max_comp:
+            max_comp = comp
+
+    # Same process for reverse primers
+    for primer in reverse_primers:
+        comp = get_max_complementarity(primer.get_heterogen_seq(),
+                                       forward_primers)
+        if comp > max_comp:
+            max_comp = comp
+
+    return max_comp
 
 def co_sort(to_sort: List[int], to_follow: List[Any], reverse: bool = False) \
         -> None:
@@ -644,6 +759,8 @@ def get_n_lowest(scores: List[Union[int, float]], n: int, highest: bool = False)
      - That every score has a correlated item.
      - An item's index in <items> also points to its score in <scores>"""
 
+    if n < 1:
+        raise ValueError("n must be greater than 0")
     # Best scores sorted from lowest to highest complementarity
     min_scores = []
     # The combination of for and rev primers that produced the scores in
@@ -665,10 +782,6 @@ def get_n_lowest(scores: List[Union[int, float]], n: int, highest: bool = False)
         if scores[i] * rev < min_scores[-1] * rev:
             co_insert(min_scores, min_items,
                       scores[i], i, reverse=highest)
-            """min_scores[-1] = scores[i][j]
-            min_items[-1] = (i, j) 
-            co_sort(min_scores, min_items, reverse=highest)"""
-            # slow ^
 
     return min_items, min_scores
 
@@ -723,6 +836,10 @@ def get_cross_iteration_pattern(num_iter: int) -> List[List[Tuple[int, int]]]:
 
     return iter_p
 
+def rev_seq(seq: Seq) -> Seq:
+    """Returns a Seq with inverted directionality. If <seq> is in the 5' - 3'
+    direction, then the returned seq will be in the 3' - 5' direction."""
+    return Seq(str(seq)[::-1])
 
 class MaxInt(Infinity, int):
     """An int that will always be greater than another int when compared to

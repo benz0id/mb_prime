@@ -6,8 +6,9 @@ from hetero_spacer_generator.sequence_tools import compare_bases_can_ignore, \
     remove_degen
 from hetero_spacer_generator.spacer_generator.random_spacer_generator import RandomSpacerGen
 from hetero_spacer_generator.primer_tools import MBPrimerBuilder, PrimerSet
+from hetero_spacer_generator.spacer_generator.spacer_filters import \
+    SpacerAlignment
 from presenters import Presenter, ConsolePresenter
-from hetero_spacer_generator.primer_types import SpacerAlignment
 from hetero_spacer_generator.defaults import NUM_SPACERS, MAX_SPACER_LENGTH, NUM_HETERO, \
     GET_SMALLEST_TOTAL_LEN_DEFAULT, GET_SMALLEST_OF_ANY_SPACER_DEFAULT
 
@@ -235,6 +236,11 @@ class HeteroGen:
     def set_rigour(self, rigour: int) -> None:
         """Sets the rigour to the specified value."""
         self._primer_gen.set_rigour(rigour)
+
+    def set_pairwise(self, degen: bool = None) -> None:
+        """Sets this HeteroGen to optimise the generated primers for pairwise
+        PCR."""
+        self._primer_gen.set_pairwise(degen=degen)
 
     def get_all_spacer_combos(self, seq: Seq
                               ) -> List[SpacerAlignment]:

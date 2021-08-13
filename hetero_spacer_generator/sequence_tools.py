@@ -3,12 +3,13 @@ from typing import List, Tuple, Iterable, Callable
 from hetero_spacer_generator.defaults import DEGEN_TO_POSSIBLE
 
 
-def order_seqs(seq1: Seq, seq2: Seq) -> Tuple[Seq, Seq]:
-    """Returns a tuple of two seqs where len(tuple[0]) >= len(tuple[1])."""
-    if len(seq1) > len(seq2):
-        return seq1, seq2
+def order_seqs(seq1: Seq, seq2: Seq) -> Tuple[Seq, Seq, bool]:
+    """Returns a tuple of two seqs where len(tuple[0]) >= len(tuple[1]).
+    Returns true iff the sequences were inverted."""
+    if len(seq1) >= len(seq2):
+        return seq1, seq2, False
     else:
-        return seq2, seq1
+        return seq2, seq1, True
 
 
 def is_degen_base(base: str) -> bool:
@@ -44,7 +45,7 @@ def comp_seqs_any_overlap(seq1: Seq, seq2: Seq,
     """Compares seq1 and seq2 over every possible alignment of the sequences
     using comp. Returns the max val produced by comp."""
     max_val = 0
-    l_seq, s_seq = order_seqs(seq1, seq2)
+    l_seq, s_seq, flipped = order_seqs(seq1, seq2)
     n = len(s_seq)
     m = len(l_seq)
     # Where l_seq[i + s] aligns with s_seq[i] for all valid i. Iterate over all
@@ -194,11 +195,14 @@ class SeqAnalyzer:
     _expect_degeneracy: bool
     _base_comp_method: Callable[[str, str], bool]
 
-    def __init__(self) -> None:
+    def __init__(self, degen: bool = None) -> None:
         """Initialises this SeqAnalyser. If degeneracy is to be expected,
         runtime will drastically increase."""
-        self._degeneracy_specified = False
-        self._expect_degeneracy = False
+        if degen is not None:
+            self.expect_degeneracy(degen)
+        else:
+            self._degeneracy_specified = False
+            self._expect_degeneracy = False
 
     def expect_degeneracy(self, expect_degeneracy: bool) -> None:
         """Specifies whether degenerate bases should be expected. It is
@@ -210,7 +214,7 @@ class SeqAnalyzer:
     def set_base_comp_method(self) -> None:
         """Sets the method used to compare bases."""
         if self._degeneracy_specified:
-            if self.expect_degeneracy:
+            if self._expect_degeneracy:
                 self._base_comp_method = compare_bases_degenerate
             else:
                 self._base_comp_method = compare_bases
@@ -231,21 +235,27 @@ class SeqAnalyzer:
                 self._base_comp_method = compare_bases
 
     def comp_seqs_any_overlap(self, seq1: Seq, seq2: Seq,
-                              comp: Callable[[str, str], int]) -> None:
+                              comp: Callable[[str, str], int],
+                              f_skip: int = 0, r_skip: int = 0) -> int:
         """Compares <seq1> and <seq2> over every possible alignment of the
         sequences using comp. Returns the max val produced by comp.
+        <f_skip> is the number of alignments to skip from
 
         Note:
             For proper binding values, ensure that <seq1> and <seq2> have
-            opposing directionality."""
+            opposing directionality. Comments assume that <seq1> is 5' - 3' and
+            <seq2> is 3' - 5', but the function will work if this is
+            switched."""
 
         self.degen_check([seq1, seq2])
 
         max_val = 0
-        l_seq, s_seq = order_seqs(seq1, seq2)
+        l_seq, s_seq, flipped = order_seqs(seq1, seq2)
         n = len(s_seq)
         m = len(l_seq)
         s_seq = s_seq.complement()
+        if flipped:
+            f_skip, r_skip = r_skip, f_skip
         # Where l_seq[i + s] aligns with s_seq[i] for all valid i. Iterate over all
         # shift that allow indices valid with the above.
 
@@ -256,16 +266,22 @@ class SeqAnalyzer:
 
         # Check combinations with partial overlap. There's no point checking
         # overlaps with size less than max_val, so skip them
-        for shift in range(0, 1 - n, -1):
+
+        # 5' of s_seq overlaps 5' of l_seq
+        for shift in range(0, 1 - n + f_skip, -1):
             size = n + shift
             if max_val > size:
                 continue
             max_val = max(comp(s_seq[-size:], l_seq[:size]), max_val)
-        for shift in range(m - n, m - 1):
+
+        # 3' of s_seq overlaps 3' of l_seq
+        for shift in range(m - n, m - 1 - r_skip):
             size = m - shift
             if max_val > size:
                 continue
             max_val = max(comp(s_seq[:size], l_seq[shift:]), max_val)
+
+        return max_val
 
     def get_consec_complementarity(self, seq1: str, seq2: str) -> int:
         """Returns the number of consecutive complementary bases between <seq1>

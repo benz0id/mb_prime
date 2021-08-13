@@ -1,12 +1,13 @@
 from typing import List, Tuple
 import random
 from hetero_spacer_generator.hetero_spacer_generator import SpacerAlignmentGen
-from hetero_spacer_generator.primer_types import *
 from hetero_spacer_generator.primer_tools import MBPrimerBuilder
 from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
     RandomSpacerGen
 import hetero_spacer_generator.spacer_generator.random_spacer_generator as rsg
 from Bio.Seq import Seq
+
+from hetero_spacer_generator.spacer_generator.spacer_filters import SpacerSet
 
 LARGE_SAMPLE_SIZE = 100
 MED_SAMPLE_SIZE = 50

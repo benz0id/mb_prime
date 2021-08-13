@@ -1,20 +1,31 @@
 import abc
 from abc import abstractmethod
-from typing import Callable, List, Dict
-from ..primer_types import SimpleCriterion, SpacerSet
+from typing import Callable, List, Dict, Tuple
+from Bio.Seq import Seq
 
 from hetero_spacer_generator.defaults import NUM_PAIRINGS_TO_COMP
 from hetero_spacer_generator.primer_tools import HalfSet, HeteroSeqTool, \
-    MBPrimerBuilder, PairWiseCriterionSingle, PairwisePrimerSet, PrimerSet, add, \
+    MBPrimerBuilder, MaxInt, PairWiseCriterionSingle, PairwisePrimerSet, \
+    PrimerSet, \
+    SimpleCriterion, add, \
     eval_consecutive_complementarity, \
     eval_total_complementarity, evaluate_heterogen_binding_cross, \
     get_all_arrangements, get_cross_iteration_pattern, get_n_lowest, \
     get_n_lowest_matrix, \
-    get_these_inds, remove_highest_scores
+    get_these_inds, remove_highest_scores, EvalMBPrimer, calculate_score
 
 # Intervals for clearing worst performing HalfSets in PairwiseSpacerSorter
-FIRST_INTERVAL = 3
+from hetero_spacer_generator.sequence_tools import is_degen
+
+FIRST_INTERVAL = 2
 REMOVE_HALFSET_INTERVAL = 2
+
+# A set of four alignments, i.e. the amount by which each primer should be
+# shifted to the right in a set of four to ensure heterogeneity.
+SpacerAlignment = Tuple[int, int, int, int]
+
+# A list of four sets of forward or reverse heterogeneity spacer sequences.
+SpacerSet = Tuple[Seq, Seq, Seq, Seq]
 
 
 class SpacerSorter(HeteroSeqTool, abc.ABC):
@@ -105,7 +116,9 @@ class SortForPairwise(SpacerSorter):
             halfsets.
     """
 
-    _rigour: int
+    _degen: bool
+
+    _primer_evaluator: EvalMBPrimer
 
     _for_primer: MBPrimerBuilder
     _rev_primer: MBPrimerBuilder
@@ -129,12 +142,12 @@ class SortForPairwise(SpacerSorter):
     _fullsets: List[List[PairwisePrimerSet]]
 
     def __init__(self, max_spacer_length: int, num_hetero: int,
-                 rigour: int = 1) -> None:
+                 num_pairings_to_comp: int = NUM_PAIRINGS_TO_COMP, degen: bool = None) -> None:
         """May initialise a functionally empty class. Build method needs to be
         called in order to ensure proper method functionality."""
-        super().__init__(max_spacer_length, num_hetero,
-                         rigour * NUM_PAIRINGS_TO_COMP)
-        self._rigour = rigour
+        super().__init__(max_spacer_length, num_hetero, num_pairings_to_comp )
+        self._degen = degen
+        self._rigour = num_pairings_to_comp
         self._for_primer = MBPrimerBuilder()
         self._rev_primer = MBPrimerBuilder()
         self._for_seqs = []
@@ -143,51 +156,69 @@ class SortForPairwise(SpacerSorter):
         self._rev_single_scores = []
         self._pair_criteria = []
 
-    @classmethod
-    def build_full(cls, max_spacer_length: int, num_hetero: int,
-                   for_primer: MBPrimerBuilder, rev_primer: MBPrimerBuilder,
-                   for_seqs: List[SpacerSet], rev_seqs: List[SpacerSet],
-                   rigour: int = 1) -> None:
+    def _do_degen_check(self, primer: MBPrimerBuilder) -> None:
+        """Checks the sequences to be used in this filter for degeneracy,
+        adjusts class attributes accordingly."""
+        for seq in primer:
+            if is_degen(seq):
+                self._degen = True
+                return
+        self._degen = False
+        return
+
+    def _build_full(self, max_spacer_length: int, num_hetero: int,
+                    for_primer: MBPrimerBuilder, rev_primer: MBPrimerBuilder,
+                    for_seqs: List[SpacerSet], rev_seqs: List[SpacerSet]
+                    ) -> None:
         """Initialises the classes attributes to the given values.
         Precondition:
                 len(for_seqs) == len(rev_seqs)"""
-        super().__init__(max_spacer_length, num_hetero,
-                         rigour * NUM_PAIRINGS_TO_COMP)
-        cls._rigour = rigour
-        cls._primer_arrangements = get_all_arrangements(4, 4)
-        cls._for_primer = for_primer
-        cls._rev_primer = rev_primer
-        cls._for_seqs = for_seqs
-        cls._rev_seqs = rev_seqs
-        cls._for_single_scores = []
-        cls._rev_single_scores = []
+        if self._degen is not None and not self._degen:
+            self._do_degen_check(for_primer)
+            self._do_degen_check(rev_primer)
+        self._primer_evaluator = EvalMBPrimer(max_spacer_length, num_hetero,
+                                              self._degen)
+        self._primer_arrangements = get_all_arrangements(4, 4)
+        self._for_primer = for_primer
+        self._rev_primer = rev_primer
+        self._for_seqs = for_seqs
+        self._rev_seqs = rev_seqs
+        self._for_single_scores = []
+        self._rev_single_scores = []
+        self._for_halfsets = []
+        self._rev_halfsets = []
         for i in range(len(for_seqs)):
-            cls._rev_single_scores.append(1)
-            cls._for_single_scores.append(1)
+            self._rev_single_scores.append(1)
+            self._for_single_scores.append(1)
 
-        cls._pair_criteria = []
+        self._pair_criteria = []
+        self._build_criteria()
 
     # INSERT NEW CRITERIA HERE
-    def build_criteria(self) -> None:
+    def _build_criteria(self) -> None:
         """Constructs the criteria attributes with some Callables"""
         self._single_criteria = [
-            # TODO fill me in
+            self._primer_evaluator.eval_homo_hetero_spacer_binding_consec,
+            self._primer_evaluator.eval_homo_hetero_spacer_binding_total
         ]
         self._single_criteria_weights = {
-            # TODO fill me in
+            self._primer_evaluator.eval_homo_hetero_spacer_binding_consec: 2,
+            self._primer_evaluator.eval_homo_hetero_spacer_binding_total: 1
         }
         self._pair_criteria = [
-            # TODO fill me in
+            self._primer_evaluator.eval_hetero_hetero_spacer_binding_consec,
+            self._primer_evaluator.eval_hetero_hetero_spacer_binding_total
         ]
         self._pair_criteria_weights = {
-            # TODO fill me in
+            self._primer_evaluator.eval_hetero_hetero_spacer_binding_consec: 2,
+            self._primer_evaluator.eval_hetero_hetero_spacer_binding_total: 1
         }
         self._pair_criteria_weights_list = []
         for criterion in self._pair_criteria:
             self._pair_criteria_weights_list.append(
                 self._pair_criteria_weights[criterion])
 
-    def evaluate_scores_single(self):
+    def _evaluate_scores_single(self):
         """Evaluates the scores of both the forward and reverse primers for each
          criterion in <self._single_criteria>"""
         for criterion in self._single_criteria:
@@ -204,9 +235,14 @@ class SortForPairwise(SpacerSorter):
         method."""
         weight = self._single_criteria_weights[criterion]
         for i in range(len(spacer_seqs)):
-            scores[i] += criterion(spacer_seqs[i], primer) * weight
+            set_scores = []
+            for seq in spacer_seqs[i]:
+                primer.set_heterogen_seq(seq)
+                comp_primer = primer.get_mbprimer()
+                set_scores.append(criterion(comp_primer))
+            scores[i] += calculate_score(set_scores)
 
-    def sort_and_trim(self):
+    def _sort_and_trim(self):
         """Removes worst scoring forward and reverse primers and their scores
         from their respective attributes."""
         best_for_inds, best_for_scores = \
@@ -226,16 +262,19 @@ class SortForPairwise(SpacerSorter):
                                     incomplete_reverse_primer: MBPrimerBuilder,
                                     forward_spacers: List[SpacerSet],
                                     reverse_spacers: List[SpacerSet],
-                                    num_to_return: int) -> List[PrimerSet]:
+                                    num_to_return: int, degen: bool = None) \
+            -> List[PrimerSet]:
         """Returns the PrimerSets best suited for pairwise PCR for
         metabarcoding."""
-        self.build_full(self._max_spacer_length, self._num_hetero,
-                        incomplete_forward_primer, incomplete_reverse_primer,
-                        forward_spacers, reverse_spacers, self._rigour)
-        self.evaluate_scores_single()
-        self.sort_and_trim()
+        self._build_full(self._max_spacer_length, self._num_hetero,
+                         incomplete_forward_primer, incomplete_reverse_primer,
+                         forward_spacers, reverse_spacers)
+        self._evaluate_scores_single()
+        self._sort_and_trim()
+        self._score_primer_sets()
+        return self._get_lowest_scoring_sets(num_to_return)
 
-    def construct_half_sets(self) -> None:
+    def _construct_half_sets(self) -> None:
         """Returns (forward_halfset, reverse_halfset) constructed from the
         forward and reverse primers and the sets of heterogeneity spacer
         sequences."""
@@ -247,7 +286,7 @@ class SortForPairwise(SpacerSorter):
                                               rev_primer_seqs))
         return
 
-    def construct_full_set_matrix(self) -> None:
+    def _construct_full_set_matrix(self) -> None:
         """Constructs a matrix of PairwisePrimerSets from the lists of forward
         and reverse HalfSets."""
         self._fullsets = []
@@ -280,7 +319,7 @@ class SortForPairwise(SpacerSorter):
                 num += 1
         return sum_fullsets / num
 
-    def update_averages(self) -> None:
+    def _update_averages(self) -> None:
         """Updates the averages of the HalfSets."""
         for f in range(self._num_pairings_to_compare):
             if self._for_halfsets[f].is_active():
@@ -291,7 +330,7 @@ class SortForPairwise(SpacerSorter):
                 self._for_halfsets[r].set_avg(self._get_col_average(r))
         return
 
-    def remove_worst_performing(self) -> None:
+    def _remove_worst_performing(self) -> None:
         """Removes the worst performing HalfSet from both the forward and
         reverse halfsets. """
         for_scores = []
@@ -305,11 +344,11 @@ class SortForPairwise(SpacerSorter):
         self._rev_halfsets[worst_rev_index].deactivate()
         return
 
-    def score_primer_sets(self) -> None:
+    def _score_primer_sets(self) -> None:
         """Creates and scores all combinations of
         <self._num_pairings_to_compare> the forward and reverse primer sets."""
-        self.construct_half_sets()
-        self.construct_full_set_matrix()
+        self._construct_half_sets()
+        self._construct_full_set_matrix()
         # Symmetric iteration pattern.
         iter_pttrn = get_cross_iteration_pattern(self._num_pairings_to_compare)
 
@@ -318,9 +357,9 @@ class SortForPairwise(SpacerSorter):
         for i in range(self._num_pairings_to_compare):
             # Remove worst scoring set after a given interval
             if i - FIRST_INTERVAL >= 0 \
-                    and i - FIRST_INTERVAL % REMOVE_HALFSET_INTERVAL == 0:
-                self.update_averages()
-                self.remove_worst_performing()
+                    and (i - FIRST_INTERVAL) % REMOVE_HALFSET_INTERVAL == 0:
+                self._update_averages()
+                self._remove_worst_performing()
             for j in range(self._num_pairings_to_compare):
                 f, r = iter_pttrn[i][j]
                 # If sets are still active, do evaluation.
@@ -330,10 +369,25 @@ class SortForPairwise(SpacerSorter):
                         self._pair_criteria,
                         self._pair_criteria_weights_list)
 
-    def construct_scores_matrix(self) -> List[List[float]]:
-        """Constructs a matrix containing the """
-
-
+    def _get_lowest_scoring_sets(self, num_sets: int) \
+            -> List[PairwisePrimerSet]:
+        """Constructs a matrix containing the scores of the now evaluated
+        PairwisePrimerSets."""
+        scores = []
+        for f in range(self._num_pairings_to_compare):
+            scores.append([])
+            for r in range(self._num_pairings_to_compare):
+                if not self._for_halfsets[f].is_active() \
+                        or not self._rev_halfsets[r].is_active():
+                    scores[f].append(MaxInt())
+                else:
+                    scores[f].append(
+                        self._fullsets[f][r].get_min_pairing_score())
+        lowest_scoring_inds = get_n_lowest_matrix(scores, num_sets)[0]
+        lowest_scoring = []
+        for ind in lowest_scoring_inds:
+            lowest_scoring.append(self._fullsets[ind[0]][ind[1]])
+        return lowest_scoring
 
 
 def remove_high_consec_complementarity(spacers: List[SpacerSet],

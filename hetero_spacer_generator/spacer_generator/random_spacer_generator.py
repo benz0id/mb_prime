@@ -1,17 +1,16 @@
 import random
 from abc import abstractmethod
-from typing import Dict, List, Tuple
-from ..primer_types import SpacerSet
+from typing import Dict, List
 from Bio.Seq import Seq
 
 from hetero_spacer_generator.defaults import INITIAL_PRIMER_SET_SIZE, \
     NUM_PAIRINGS_TO_COMP, NUM_HETERO, NUM_SPACERS
 from hetero_spacer_generator.spacer_generator.spacer_filters import \
-    SortForSimultaneous
+    SortForPairwise, SortForSimultaneous, SpacerAlignment, SpacerSet, \
+    SpacerSorter
 from hetero_spacer_generator.primer_tools import HeteroSeqTool, \
     IncompatibleSpacerError, MBPrimerBuilder, \
     PrimerSet
-from hetero_spacer_generator.primer_types import SpacerAlignment
 from hetero_spacer_generator.sequence_tools import remove_degen
 
 
@@ -112,6 +111,11 @@ class HeteroSpacerGen(HeteroSeqTool):
         <reverse_spacers> respectively."""
         pass
 
+    @abstractmethod
+    def set_pairwise(self, degen: bool = None) -> None:
+        """Sets the primer types to be returned to pairwise primers"""
+        pass
+
     def set_params(self, max_spacer_length: int, num_hetero: int) -> None:
         """Sets the construction parameters to the given values."""
         self._num_hetero_forward = num_hetero
@@ -128,8 +132,9 @@ class RandomSpacerGen(HeteroSpacerGen):
             Helper class that sorts spacers according to some parameters.
     """
     _random_per_align: int
-    _number_to_cross_compare: int
-    _spacer_sorter: SortForSimultaneous
+    _num_pairings_to_compare: int
+    _spacer_sorter: SpacerSorter
+    _rigour: int
 
     def __init__(self, max_spacer_length: int, num_hetero: int,
                  rigour: int = 1) -> None:
@@ -164,19 +169,27 @@ class RandomSpacerGen(HeteroSpacerGen):
             reverse_spacer_seqs,
             num_to_return)
 
+    def set_pairwise(self, degen: bool = None) -> None:
+        """Sets the primer types to be returned to pairwise primers"""
+        self._spacer_sorter = SortForPairwise(self._max_spacer_length,
+        self._num_hetero, num_pairings_to_comp=self._num_pairings_to_compare,
+                                              degen=degen)
+
     def set_rigour(self, rigour: int) -> None:
         """Increases the sample sizes of the random generation process
         according to <rigour>. """
-        if rigour >= 1:
+        self._rigour = rigour
+        if rigour > 0:
             self._random_per_align = INITIAL_PRIMER_SET_SIZE * rigour
+            self._num_pairings_to_compare = int(NUM_PAIRINGS_TO_COMP * rigour)
             self._spacer_sorter.set_num_pairings_to_compare(
                 NUM_PAIRINGS_TO_COMP * rigour)
-        elif rigour < 1:
+        elif rigour < 0:
             self._random_per_align = int(INITIAL_PRIMER_SET_SIZE /
                                          -rigour)
+            self._num_pairings_to_compare = int(NUM_PAIRINGS_TO_COMP / -rigour)
             self._spacer_sorter.set_num_pairings_to_compare(
-                int(NUM_PAIRINGS_TO_COMP /
-                    -rigour))
+                self._num_pairings_to_compare)
         elif rigour == 0:
             raise ValueError("Rigour cannot be equal to 0")
 
