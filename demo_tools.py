@@ -10,7 +10,8 @@ RANGE = 'ran'
 DNA = 'dna'
 
 
-def get_primer_and_spacers(hg: HeteroGen, direction: str) \
+def get_primer_and_spacers(hg: HeteroGen, direction: str,
+                           one_step: bool = False) \
         -> Tuple[MBPrimerBuilder, Tuple[int, int, int, int]]:
     succ = False
     spacers = []
@@ -20,7 +21,7 @@ def get_primer_and_spacers(hg: HeteroGen, direction: str) \
             "Please enter below the components of your " + direction + " primer.\n"
                                                                        "The adapter and binding regions are mandatory.\n")
 
-        incomplete_primer = get_incomplete_primer()
+        incomplete_primer = get_incomplete_primer(not one_step)
 
         print(
             "Please input the desired parameters for the construction of your "
@@ -97,7 +98,7 @@ def while_not_valid(msg: str, e_msg: str, mode: Union[int, str],
     return inpt
 
 
-def get_incomplete_primer() -> MBPrimerBuilder:
+def get_incomplete_primer(get_index: bool = True) -> MBPrimerBuilder:
     """Prompts the user through the console for the components required to build
     a metabarcoding primer."""
     primer = MBPrimerBuilder()
@@ -106,10 +107,11 @@ def get_incomplete_primer() -> MBPrimerBuilder:
         "Bad input, please ensure your entry is a valid sequence:", DNA)
     primer.set_adapter_seq(inpt.upper())
 
-    inpt = while_not_valid(
-        "Enter the indexing region of your primer (5' - 3'): ",
-        "Bad input, please ensure your entry is a valid sequence:", DNA)
-    primer.set_index_seq(inpt.upper())
+    if get_index:
+        inpt = while_not_valid(
+            "Enter the indexing region of your primer (5' - 3'): ",
+            "Bad input, please ensure your entry is a valid sequence:", DNA)
+        primer.set_index_seq(inpt.upper())
 
     inpt = while_not_valid(
         "Enter the binding region of your primer (5' - 3'): ",

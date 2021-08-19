@@ -1,3 +1,4 @@
+from hetero_spacer_generator.sequence_tools import is_degen
 from presenters import ConsolePresenter
 from demo_tools import *
 from time import time
@@ -6,12 +7,25 @@ PRESENTER = ConsolePresenter()
 hg = HeteroGen(presenter=PRESENTER)
 input("Press enter to start.")
 
+
 incomplete_forward_primer, forward_spacer = get_primer_and_spacers(hg,
-                                                                   'forward')
+                                                                   'forward',
+                                                                   one_step=True)
 incomplete_reverse_primer, reverse_spacer = get_primer_and_spacers(hg,
-                                                                   'reverse')
+                                                                   'reverse',
+                                                                   one_step=True)
 
 while True:
+
+    degen = False
+    for primer in (incomplete_forward_primer, incomplete_reverse_primer):
+        for seq in primer:
+            if is_degen(seq):
+                degen = True
+                break
+
+
+    hg.set_pairwise()
 
     rigour = int(while_not_valid(
         "Enter the rigour with which the program "

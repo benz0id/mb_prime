@@ -225,13 +225,13 @@ class SeqAlignAnalyser:
         LOCAL_AVERAGE_BREADTH nearest bases on either side."""
         self._seqs_hg_local_average = []
 
-
     def add_seq(self, seq: Seq) -> None:
         """Adds seq to the aligned seqs."""
         seq_len = len(seq)
         for existing_seq in self._seqs:
             if len(existing_seq) != seq_len:
                 raise ValueError("All inputted seqs must be the same length.")
+            return
         self._seqs.append(seq)
         self._seqs_current = False
 
