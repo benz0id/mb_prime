@@ -1,12 +1,10 @@
-import pytest
-
-from hetero_spacer_generator.hetero_spacer_generator import *
+from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import *
 from hetero_spacer_generator.primer_tools import *
 from hetero_spacer_generator.sequence_tools import *
 import random
 import hetero_spacer_generator.spacer_generator.random_spacer_generator as rsg
 from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
-    RandomSpacerGen, gen_hetero_set, gen_heterogeneity_spacers_rand, \
+    gen_heterogeneity_spacers_rand, \
     get_potential_bases, \
     get_vacant_bases
 from hetero_spacer_generator.spacer_generator.spacer_filters import *

@@ -1,4 +1,3 @@
-from hetero_spacer_generator.hetero_spacer_generator import HeteroGen
 from presenters import ConsolePresenter
 from demo_tools import *
 from time import time

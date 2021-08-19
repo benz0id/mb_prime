@@ -1,6 +1,6 @@
 from typing import List, Tuple
 import random
-from hetero_spacer_generator.hetero_spacer_generator import SpacerAlignmentGen
+from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import SpacerAlignmentGen
 from hetero_spacer_generator.primer_tools import MBPrimerBuilder
 from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
     RandomSpacerGen
@@ -54,6 +54,18 @@ def ensure_valid_spacers(incomplete_primer: MBPrimerBuilder or Seq,
 def gen_random_seq(length: int) -> Seq:
     """Generates a random Seq of <length>"""
     bases = ['A', 'T', 'C', 'G']
+    seq_str = ''
+    for _ in range(length):
+        seq_str += random.choice(bases)
+
+    return Seq(seq_str)
+
+
+def gen_random_seq_degen(length: int) -> Seq:
+    """Generates a random Seq of <length>"""
+    bases = ['A', 'T', 'C', 'G', 'W', 'S',
+             'M', 'K', 'R', 'Y', 'B', 'D',
+             'H', 'V', 'N']
     seq_str = ''
     for _ in range(length):
         seq_str += random.choice(bases)
@@ -203,3 +215,17 @@ class SeqFixtureManager:
                            self.forward_spacer,
                            self.reverse_spacer,
                            self.num_to_generate)
+
+# Begin fixtures for seq_alignment_analyser
+
+
+def gen_seq_list(num_seqs: int, len: int, variance: int = 0,
+                 degen: bool = False) -> List[Seq]:
+    seqs = []
+    for i in range(num_seqs):
+        seq_len = random.randrange(int(len - variance/2), int(len + variance/2))
+        if degen:
+            seqs.append(gen_random_seq_degen(seq_len))
+        else:
+            seqs.append(gen_random_seq(seq_len))
+    return seqs

@@ -6,7 +6,7 @@ import fixtures_and_helpers as fah
 from hetero_spacer_generator.primer_tools import EvalMBPrimer, MBPrimer, \
     MBPrimerBuilder
 from hetero_spacer_generator.sequence_tools import SeqAnalyzer
-from hetero_spacer_generator.hetero_spacer_generator import HeteroGen
+from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import HeteroGen
 from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
     gen_hetero_set
 from hetero_spacer_generator.spacer_generator.spacer_filters import \
