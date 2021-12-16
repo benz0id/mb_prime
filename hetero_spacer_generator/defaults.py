@@ -20,6 +20,8 @@ GET_SMALLEST_TOTAL_LEN_DEFAULT = 1
 # We make this 4, the corresponding method is likely to return values a fourth
 # of the size of get_smallest_total_len_list().
 GET_SMALLEST_OF_ANY_SPACER_DEFAULT = 4
+# Very important that the spacers aren't aligned.
+GET_UNIQUE_SPACER_OFFSETS_DEFAULT = 4
 
 # Degenerate primers are enabled.
 DEGENERATE_PRIMERS = False

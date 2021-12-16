@@ -50,15 +50,14 @@ def ensure_valid_spacers(incomplete_primer: MBPrimerBuilder or Seq,
                                          spacers)
     return ensure_hetero_seq_arr(seq_arr, num_hetero)
 
-
-def gen_random_seq(length: int) -> Seq:
+def gen_random_seq(length: int, GC: float = 0.5) -> Seq:
     """Generates a random Seq of <length>"""
+    AT = 1 - GC
     bases = ['A', 'T', 'C', 'G']
-    seq_str = ''
-    for _ in range(length):
-        seq_str += random.choice(bases)
 
-    return Seq(seq_str)
+    return Seq(''.join(random.choices(bases,
+                                      weights=[AT / 2, AT / 2, GC / 2, GC / 2],
+                              k=length)))
 
 
 def gen_random_seq_degen(length: int) -> Seq:

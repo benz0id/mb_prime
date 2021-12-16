@@ -1,19 +1,23 @@
 from hetero_spacer_generator.sequence_tools import is_degen
 from presenters import ConsolePresenter
-from demo_tools import *
+import demo_tools
 from time import time
 
+
+
 PRESENTER = ConsolePresenter()
-hg = HeteroGen(presenter=PRESENTER)
+hg = demo_tools.HeteroGen(presenter=PRESENTER)
 input("Press enter to start.")
 
+demo_tools.ACCEPT_DEGEN = True
 
-incomplete_forward_primer, forward_spacer = get_primer_and_spacers(hg,
+
+incomplete_forward_primer, forward_spacer = demo_tools.get_primer_and_spacers(hg,
                                                                    'forward',
-                                                                   one_step=True)
-incomplete_reverse_primer, reverse_spacer = get_primer_and_spacers(hg,
+                                                                   is_one_step=True)
+incomplete_reverse_primer, reverse_spacer = demo_tools.get_primer_and_spacers(hg,
                                                                    'reverse',
-                                                                   one_step=True)
+                                                                   is_one_step=True)
 
 while True:
 
@@ -24,23 +28,22 @@ while True:
                 degen = True
                 break
 
-
     hg.set_pairwise()
 
-    rigour = int(while_not_valid(
+    rigour = int(demo_tools.while_not_valid(
         "Enter the rigour with which the program "
         "should search for possible combinations of spacers. "
         "Note: increasing the rigour leads to "
-        "an exponential increase in runtime. Enter a value between 1 and 10:",
-        "Please enter a number between 1 and 10:",
-        RANGE, start=1, end=10))
+        "an exponential increase in runtime. Enter a value between -10 and 10:",
+        "Please enter a number between -10 and 10:",
+        demo_tools.RANGE, start=-10, end=10))
 
     hg.set_rigour(rigour)
 
     number_to_return = int(
-        while_not_valid("Enter the number of sets of primer sets you'd like to "
+        demo_tools.while_not_valid("Enter the number of sets of primer sets you'd like to "
                         "see.", "Please enter a number between 1 and 10:",
-                                 RANGE, start=1, end=10))
+                                   demo_tools.RANGE, start=1, end=10))
 
     print("Generating primers. This may take some time...")
 

@@ -455,6 +455,49 @@ class PrimerSet:
         for primer in reverse_primers:
             self._reverse_primers.append(primer)
 
+    def get_plain_seqs(self) -> str:
+        """Returns the sequences of this primer set as plain strings seperated
+        by the newline character."""
+        str_rep = ''
+        for primer in self._forward_primers:
+            str_rep += ''.join([str(primer.get_adapter_seq()),
+                                       str(primer.get_index_seq()),
+                                       str(primer.get_heterogen_seq()),
+                                       str(primer.get_binding_seq())])
+            str_rep += '\n'
+        for primer in self._reverse_primers:
+            str_rep += ''.join([str(primer.get_adapter_seq()),
+                                       str(primer.get_index_seq()),
+                                       str(primer.get_heterogen_seq()),
+                                       str(primer.get_binding_seq())])
+            str_rep += '\n'
+        return str_rep
+
+    def get_fasta_seqs(self, set_number: int) -> str:
+        """Returns the sequences of this primer set as plain strings seperated
+        by the newline character. Will name each primer according to the
+        <set_number>, where each set is assumed to contain 4 primers. Does start
+        at 0."""
+        primer_number = set_number * 4
+        str_rep = ''
+        for primer_inds in range(len(self._forward_primers)):
+            for_primer = self._forward_primers[primer_inds]
+            rev_primer = self._reverse_primers[primer_inds]
+            str_rep += ''.join(['>Forward #', str(primer_number), '\n'])
+            str_rep += ''.join([str(for_primer.get_adapter_seq()),
+                                str(for_primer.get_index_seq()),
+                                str(for_primer.get_heterogen_seq()),
+                                str(for_primer.get_binding_seq())])
+            str_rep += '\n'
+            str_rep += ''.join(['>Reverse #', str(primer_number), '\n'])
+            str_rep += ''.join([str(rev_primer.get_adapter_seq()),
+                                str(rev_primer.get_index_seq()),
+                                str(rev_primer.get_heterogen_seq()),
+                                str(rev_primer.get_binding_seq())])
+            str_rep += '\n'
+            primer_number += 1
+        return str_rep
+
     def __str__(self) -> str:
         """Returns a string representation of this primer set."""
         str_rep = ''
@@ -530,10 +573,35 @@ class PairwisePrimerSet(PrimerSet):
                               "F2 - R{R2:d}",
                               "F3 - R{R3:d}",
                               "F4 - R{R4:d}"]).format(
-                       R1=self._optimal_pairing[0],
-                       R2=self._optimal_pairing[1],
-                       R3=self._optimal_pairing[2],
-                       R4=self._optimal_pairing[3], )
+                       R1=self._optimal_pairing[0] + 1,
+                       R2=self._optimal_pairing[1] + 1,
+                       R3=self._optimal_pairing[2] + 1,
+                       R4=self._optimal_pairing[3] + 1, )
+        return str_rep
+
+    def get_fasta_seqs(self, set_number: int) -> str:
+        """Returns the sequences of this primer set as plain strings seperated
+        by the newline character. Will name each primer according to the
+        <set_number>, where each set is assumed to contain 4 primers. Does start
+        at 0."""
+        primer_number = set_number * 4
+        str_rep = ''
+        for primer_inds in enumerate(self._optimal_pairing):
+            for_primer = self._forward_primers[primer_inds[0]]
+            rev_primer = self._reverse_primers[primer_inds[1]]
+            str_rep += ''.join(['>Forward #', str(primer_number), '\n'])
+            str_rep += ''.join([str(for_primer.get_adapter_seq()),
+                                str(for_primer.get_index_seq()),
+                                str(for_primer.get_heterogen_seq()),
+                                str(for_primer.get_binding_seq())])
+            str_rep += '\n'
+            str_rep += ''.join(['>Reverse #', str(primer_number), '\n'])
+            str_rep += ''.join([str(rev_primer.get_adapter_seq()),
+                                str(rev_primer.get_index_seq()),
+                                str(rev_primer.get_heterogen_seq()),
+                                str(rev_primer.get_binding_seq())])
+            str_rep += '\n'
+            primer_number += 1
         return str_rep
 
     def get_min_pairing_score(self) -> int:

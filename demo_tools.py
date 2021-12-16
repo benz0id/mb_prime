@@ -8,10 +8,11 @@ from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import Het
 STR = 'str'
 RANGE = 'ran'
 DNA = 'dna'
-
+DNA_DGN = 'dna_degen'
+ACCEPT_DEGEN = False
 
 def get_primer_and_spacers(hg: HeteroGen, direction: str,
-                           one_step: bool = False) \
+                           is_one_step: bool = False) \
         -> Tuple[MBPrimerBuilder, Tuple[int, int, int, int]]:
     succ = False
     spacers = []
@@ -21,7 +22,7 @@ def get_primer_and_spacers(hg: HeteroGen, direction: str,
             "Please enter below the components of your " + direction + " primer.\n"
                                                                        "The adapter and binding regions are mandatory.\n")
 
-        incomplete_primer = get_incomplete_primer(not one_step)
+        incomplete_primer = get_incomplete_primer(not is_one_step)
 
         print(
             "Please input the desired parameters for the construction of your "
@@ -75,12 +76,20 @@ def valid_input(input: Union[int, str], mode: str, start: Union[int, str] = 0,
     if mode == RANGE:
         start = int(start)
         end = int(end)
+        neg_ind = input.find('-')
+        if neg_ind >= 0:
+            return input[1:].isnumeric() and start <= int(input) <= end
         return input.isnumeric() and start <= int(input) <= end
     if mode == STR:
         return str(input) in str(allowed)
     if mode == DNA:
         for char in input:
             if char.capitalize() not in 'ATCG':
+                return False
+        return True
+    if mode == DNA_DGN:
+        for char in input:
+            if char.capitalize() not in 'ACTGUWSMKRYBDHVNI':
                 return False
         return True
 
@@ -101,21 +110,26 @@ def while_not_valid(msg: str, e_msg: str, mode: Union[int, str],
 def get_incomplete_primer(get_index: bool = True) -> MBPrimerBuilder:
     """Prompts the user through the console for the components required to build
     a metabarcoding primer."""
+    if ACCEPT_DEGEN:
+        accepted = DNA_DGN
+    else:
+        accepted = DNA
     primer = MBPrimerBuilder()
     inpt = while_not_valid(
         "Enter the adapter region of your primer (5' - 3'): ",
-        "Bad input, please ensure your entry is a valid sequence:", DNA)
+        "Bad input, please ensure your entry is a valid sequence:", accepted)
     primer.set_adapter_seq(inpt.upper())
 
     if get_index:
         inpt = while_not_valid(
             "Enter the indexing region of your primer (5' - 3'): ",
-            "Bad input, please ensure your entry is a valid sequence:", DNA)
+            "Bad input, please ensure your entry is a valid sequence:",
+            accepted)
         primer.set_index_seq(inpt.upper())
 
     inpt = while_not_valid(
         "Enter the binding region of your primer (5' - 3'): ",
-        "Bad input, please ensure your entry is a valid sequence:", DNA)
+        "Bad input, please ensure your entry is a valid sequence:", accepted)
     primer.set_binding_seq(inpt.upper())
 
     return primer
@@ -137,9 +151,3 @@ def get_params() -> Tuple[int, int]:
 
     return int(spacer_length), int(num_hetero)
 
-
-def print_dots(delay: int) -> None:
-    """Prints a dot every <delay> seconds."""
-    while True:
-        sleep(delay)
-        print('.', end='')

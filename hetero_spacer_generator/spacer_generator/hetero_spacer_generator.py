@@ -9,7 +9,8 @@ from hetero_spacer_generator.primer_tools import MBPrimerBuilder, PrimerSet
 from hetero_spacer_generator.spacer_generator.spacer_filters import \
     SpacerAlignment
 from presenters import Presenter, ConsolePresenter
-from hetero_spacer_generator.defaults import NUM_SPACERS, MAX_SPACER_LENGTH, NUM_HETERO, \
+from hetero_spacer_generator.defaults import GET_UNIQUE_SPACER_OFFSETS_DEFAULT, \
+    NUM_SPACERS, MAX_SPACER_LENGTH, NUM_HETERO, \
     GET_SMALLEST_TOTAL_LEN_DEFAULT, GET_SMALLEST_OF_ANY_SPACER_DEFAULT
 
 
@@ -21,6 +22,15 @@ def get_smallest_total_len_list(spacers: List[SpacerAlignment]) -> List[int]:
     for spacer in spacers:
         spacer_combined_length.append(sum(spacer))
     return spacer_combined_length
+
+
+def get_unique_spacer_offsets(spacers: List[SpacerAlignment]) -> List[int]:
+    """Returns a list containing the number of different spacer lengths in
+    each alignment."""
+    num_unique = []
+    for spacer in spacers:
+        num_unique.append(4 - len(set(spacer)))
+    return num_unique
 
 
 def get_smallest_of_any_spacer_list(spacers: List[SpacerAlignment]) \
@@ -62,7 +72,8 @@ class SpacerAlignmentGen(HeteroSeqTool):
         # Add new criteria here.
         self._criterion_to_weight = {
             get_smallest_of_any_spacer_list: GET_SMALLEST_OF_ANY_SPACER_DEFAULT,
-            get_smallest_total_len_list: GET_SMALLEST_TOTAL_LEN_DEFAULT
+            get_smallest_total_len_list: GET_SMALLEST_TOTAL_LEN_DEFAULT,
+            get_unique_spacer_offsets: GET_UNIQUE_SPACER_OFFSETS_DEFAULT
         }
 
         self._criteria = list(self._criterion_to_weight.keys())
