@@ -28,6 +28,7 @@ SpacerAlignment = Tuple[int, int, int, int]
 SpacerSet = Tuple[Seq, Seq, Seq, Seq]
 
 
+
 class SpacerSorter(HeteroSeqTool, abc.ABC):
     """A class that sorts spacers based on some parameters.
     _num_pairings_to_compare:
@@ -218,6 +219,9 @@ class SortForPairwise(SpacerSorter):
             self._pair_criteria_weights_list.append(
                 self._pair_criteria_weights[criterion])
 
+    # Begin methods for finding seqs with lowest homo-dimerisation potential
+    # from a pre-existing set of primers.
+
     def _evaluate_scores_single(self):
         """Evaluates the scores of both the forward and reverse primers for each
          criterion in <self._single_criteria>"""
@@ -240,7 +244,7 @@ class SortForPairwise(SpacerSorter):
                 primer.set_heterogen_seq(seq)
                 comp_primer = primer.get_mbprimer()
                 set_scores.append(criterion(comp_primer))
-            scores[i] += calculate_score(set_scores)
+            scores[i] += calculate_score(set_scores) * weight
 
     def _sort_and_trim(self):
         """Removes worst scoring forward and reverse primers and their scores

@@ -589,13 +589,13 @@ class PairwisePrimerSet(PrimerSet):
         for primer_inds in enumerate(self._optimal_pairing):
             for_primer = self._forward_primers[primer_inds[0]]
             rev_primer = self._reverse_primers[primer_inds[1]]
-            str_rep += ''.join(['>Forward #', str(primer_number), '\n'])
+            str_rep += ''.join(['>F', str(primer_number), '\n'])
             str_rep += ''.join([str(for_primer.get_adapter_seq()),
                                 str(for_primer.get_index_seq()),
                                 str(for_primer.get_heterogen_seq()),
                                 str(for_primer.get_binding_seq())])
             str_rep += '\n'
-            str_rep += ''.join(['>Reverse #', str(primer_number), '\n'])
+            str_rep += ''.join(['>R', str(primer_number), '\n'])
             str_rep += ''.join([str(rev_primer.get_adapter_seq()),
                                 str(rev_primer.get_index_seq()),
                                 str(rev_primer.get_heterogen_seq()),
@@ -697,6 +697,7 @@ def evaluate_heterogen_binding_cross(forward_primers: HalfSet,
             max_comp = comp
 
     return max_comp
+
 
 def co_sort(to_sort: List[int], to_follow: List[Any], reverse: bool = False) \
         -> None:
