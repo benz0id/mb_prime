@@ -1,6 +1,7 @@
-from abc import ABC
-from typing import Any, Callable, Collection, Iterator, List, Tuple, Dict, \
-    Iterable, Union
+import functools
+from abc import ABC, abstractmethod
+from typing import Any, Callable, Collection, Generic, Iterator, List, Tuple, \
+    Dict, Iterable, Union, TypeVar
 
 from infinity import Infinity
 
@@ -241,7 +242,7 @@ class EvalMBPrimer(SeqAnalyzer, HeteroSeqTool):
         HeteroSeqTool.__init__(self, max_spacer_length, num_hetero)
 
     def eval_inherent_heterodimer_consec(self, forward_primer: MBPrimerBuilder,
-                                  reverse_primer: MBPrimerBuilder) -> int:
+                                         reverse_primer: MBPrimerBuilder) -> int:
         """Returns the greatest number consecutively complementary bases between
         the components of the <forward_primer> and <reverse_primer> external to
         the heterogeneity spacer."""
@@ -275,7 +276,7 @@ class EvalMBPrimer(SeqAnalyzer, HeteroSeqTool):
                                           f_skip, r_skip)
 
     def eval_hetero_hetero_spacer_binding_consec(self, for_primer: MBPrimer,
-                                   rev_primer: MBPrimer) -> int:
+                                                 rev_primer: MBPrimer) -> int:
         f_skip = min(for_primer.get_5p_len(), rev_primer.get_5p_len())
         r_skip = min(for_primer.get_3p_len(), rev_primer.get_3p_len())
         return self.comp_seqs_any_overlap(for_primer, rev_primer,
@@ -283,7 +284,7 @@ class EvalMBPrimer(SeqAnalyzer, HeteroSeqTool):
                                           f_skip, r_skip)
 
     def eval_inherent_heterodimer_total(self, forward_primer: MBPrimerBuilder,
-                                         reverse_primer: MBPrimerBuilder) -> int:
+                                        reverse_primer: MBPrimerBuilder) -> int:
         """Returns the greatest number consecutively complementary bases between
         the components of the <forward_primer> and <reverse_primer> external to
         the heterogeneity spacer."""
@@ -317,7 +318,7 @@ class EvalMBPrimer(SeqAnalyzer, HeteroSeqTool):
                                           f_skip, r_skip)
 
     def eval_hetero_hetero_spacer_binding_total(self, for_primer: MBPrimer,
-                                                 rev_primer: MBPrimer) -> int:
+                                                rev_primer: MBPrimer) -> int:
         """Evaluates the ability of <primer>'s heterogeneity spacer to form
         bonds with itself."""
         f_skip = min(for_primer.get_5p_len(), rev_primer.get_5p_len())
@@ -461,15 +462,15 @@ class PrimerSet:
         str_rep = ''
         for primer in self._forward_primers:
             str_rep += ''.join([str(primer.get_adapter_seq()),
-                                       str(primer.get_index_seq()),
-                                       str(primer.get_heterogen_seq()),
-                                       str(primer.get_binding_seq())])
+                                str(primer.get_index_seq()),
+                                str(primer.get_heterogen_seq()),
+                                str(primer.get_binding_seq())])
             str_rep += '\n'
         for primer in self._reverse_primers:
             str_rep += ''.join([str(primer.get_adapter_seq()),
-                                       str(primer.get_index_seq()),
-                                       str(primer.get_heterogen_seq()),
-                                       str(primer.get_binding_seq())])
+                                str(primer.get_index_seq()),
+                                str(primer.get_heterogen_seq()),
+                                str(primer.get_binding_seq())])
             str_rep += '\n'
         return str_rep
 
@@ -519,6 +520,7 @@ class PrimerSet:
 
 
 SpacerPairing = Tuple[int, int, int, int]
+
 
 def calculate_score(scores: Collection[int]) -> int:
     """Calculates the average score of <scores>, increasing the score if
@@ -855,6 +857,53 @@ def get_n_lowest(scores: List[Union[int, float]], n: int, highest: bool = False)
     return min_items, min_scores
 
 
+
+
+
+@functools.total_ordering
+class Comparable(ABC):
+    @abstractmethod
+    def __lt__(self, other) -> bool:
+        pass
+
+    @abstractmethod
+    def __eq__(self, other) -> bool:
+        pass
+
+
+T = TypeVar('T', Comparable, int, float)
+
+
+def get_n_highest_sbs(vals: List[List[T]], n: int,
+                      least: bool = False) -> List[T]:
+    """Returns the <n> greatest Comparable[T]s in vals.
+
+    Precondition:
+        vals must be sorted G-L, (L-G iff <least>)
+        combined length of all <vals> must be greater than or equal to <n>."""
+    t_len = 0
+    for val in vals:
+        t_len += len(val)
+    if t_len < n:
+        raise ValueError("Combined length of all <vals> must be greater than or"
+                         " equal to <n>")
+    # Current index in each list in vals
+    inds = [0 for _ in vals]
+    greatest = []
+    while len(greatest) < n:
+        sub_vals = []
+        # Collect values of each val at its corresponding ind in inds.
+        for ind in enumerate(inds):
+            if ind[1] < len(vals[ind[0]]):
+                sub_vals.append(vals[ind[0]][ind[1]])
+            else:
+                sub_vals.append(- MaxInt() if not least else MaxInt())
+        max_ind = max(range(len(sub_vals)), key=sub_vals.__getitem__)
+        greatest.append(vals[max_ind][inds[max_ind]])
+        inds[max_ind] += 1
+    return greatest
+
+
 def get_these_inds(indices: List[int], values: List[Any]) -> List[Any]:
     """Returns the values in <values> at the indices in <indices>.
     Precondition:
@@ -905,10 +954,12 @@ def get_cross_iteration_pattern(num_iter: int) -> List[List[Tuple[int, int]]]:
 
     return iter_p
 
+
 def rev_seq(seq: Seq) -> Seq:
     """Returns a Seq with inverted directionality. If <seq> is in the 5' - 3'
     direction, then the returned seq will be in the 3' - 5' direction."""
     return Seq(str(seq)[::-1])
+
 
 class MaxInt(Infinity, int):
     """An int that will always be greater than another int when compared to

@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, TypeVar
 import random
 from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import SpacerAlignmentGen
 from hetero_spacer_generator.primer_tools import MBPrimerBuilder
@@ -228,3 +228,17 @@ def gen_seq_list(num_seqs: int, len: int, variance: int = 0,
         else:
             seqs.append(gen_random_seq(seq_len))
     return seqs
+
+
+T = TypeVar('T')
+
+
+def all_unique(lst: List[T]) -> bool:
+    """Where lst contains attributes with the __eq__ method defined."""
+    for i_tup in enumerate(lst):
+        i = i_tup[0]
+        item_i = i_tup[1]
+        for item_j in lst[i + 1:]:
+            if item_j == item_i:
+                return False
+    return True
