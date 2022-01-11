@@ -259,10 +259,15 @@ class SeqAnalyzer:
         # Where l_seq[i + s] aligns with s_seq[i] for all valid i. Iterate over all
         # shift that allow indices valid with the above.
 
+        # Convert to strings
+        l_seq = l_seq.__str__()
+        s_seq = s_seq.__str__()
+
         # Check combinations with full overlap first.
         for shift in range(0, m - n):
             size = n
             max_val = max(comp(s_seq, l_seq[shift:shift + size]), max_val)
+
 
         # Check combinations with partial overlap. There's no point checking
         # overlaps with size less than max_val, so skip them
@@ -293,7 +298,7 @@ class SeqAnalyzer:
         length = len(seq1)
 
         for i in range(length):
-            if self._base_comp_method(seq1[i], seq2[i]):
+            if seq1[i] == seq2[i]:
                 running_consec += 1
             else:
                 if max_consec < running_consec:
@@ -311,6 +316,8 @@ class SeqAnalyzer:
 
         num_comp = 0
         for i in range(len(seq1)):
-            if self._base_comp_method(seq1[i], seq2[i]):
+            if seq1[i] == seq2[i]:
                 num_comp += 1
         return num_comp
+
+

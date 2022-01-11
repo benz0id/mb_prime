@@ -133,7 +133,7 @@ class BindingPairParams(Param):
         self.r_params = r_params
 
 
-P = TypeVar('P', Param)
+P = TypeVar('P')
 
 
 class BindingSeqIterator(ABC):
@@ -182,6 +182,8 @@ class BindingSeqScorer(ABC):
         The consensus sequence from which this class will extract binding
         Sequences.
         """
+
+    P = TypeVar('P')
 
     _best_params: List[P]
     _seq_iterator: BindingSeqIterator
@@ -335,7 +337,6 @@ class HomoSeqScorer(BindingSeqScorer):
 
     for_binding |       5'-GCATGGTGATCGT-3'
     <consensus> | 5'-ATCGATGCATGGTGATCGTAGGTCGGTAGTCGTCAGTCGTGTAGTCGG-3'
-    rev_binding |                              3'-AGCAGTCAGCACA-5'
 
     === Private Attributes ===
 
@@ -362,7 +363,8 @@ class HomoSeqScorer(BindingSeqScorer):
     def __init__(self, alignment: MultipleSeqAlignment, allowed_5p: List[int],
                  allowed_lengths: List[int], adapters: List[str],
                  num_params_to_keep: int, rev: bool) -> None:
-        """Constructs """
+        """Constructs necessary components for sampling primer space and storing
+        the results."""
         # TODO Find smarter ways of extracting consensus.
         sa = SummaryInfo(alignment)
         consensus = sa.dumb_consensus()
@@ -390,10 +392,31 @@ class HomoSeqScorer(BindingSeqScorer):
                                allowed_lengths=self._allowed_lengths)
 
     @classmethod
-    def _split_class(cls: C, num: int) -> List[C]:
+    def _split_class(cls, num: int) -> List[]:
         """Splits the class into <num> separate homo_seq scorers, each sampling
         the same number of binding sequences. To be used in threading."""
-        pass
+        # To avoid uneven distribution or responsibilities, divide into even
+        # portions by splitting parameters evenly. Size and adapter number
+        # may contribute to runtime, so avoid splitting those.
+        # 1. 5' inds
+        # 2. Adapter seqs
+        # 3. Size
+        children = []
+
+        if cls._allowed_5p % num == 0:
+            num_per_cls = len(cls._allowed_5p) // num
+            # Split 5' indices evenly  among children. Ensures even split.
+            for i in range(num):
+                child_5p = cls._allowed_5p[i::num_per_cls]
+                children.append(HomoSeqScorer(cls._alignment, ))
+
+
+
+
+
+
+
+
 
     def score_binding_seq(self, adapter_ind: int, binding_seq: str) -> float:
         """Returns the score of the given adapter-binding seq combo."""
