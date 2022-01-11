@@ -1,9 +1,9 @@
 from typing import List, Tuple
 from Bio.Seq import Seq
-import numpy
 import random
 import timeit
 from hetero_spacer_generator.sequence_tools import SeqAnalyzer
+from statistics import stdev
 
 # What I use throughout the program to compare sequences.
 sa = SeqAnalyzer(degen=False)
@@ -14,9 +14,9 @@ seq1_len = 32
 seq2_len = 32
 
 # The number of different randomly generated sequences to compare.
-num_rand_seqs = 100
+num_rand_seqs = 10000
 # The number of times to re-run each timing. Increases accuracy.
-num_repetitions = 100
+num_repetitions = 10
 # A factor by which to multiple the final time. To be used when expecting to
 # do more than one string comparison.
 factor = 3
@@ -44,26 +44,28 @@ def base_comparison_times(seq1: Seq, seq2: Seq,
     return consec_time, total_time
 
 
-def time_for_n_random(n: int = num_rand_seqs) -> Tuple[float, float]:
+def time_for_n_random(n: int = num_rand_seqs) -> Tuple[float, float, float]:
     """Returns the average time to find the consecutive and total
-    complementarity between two randomly generated sequences. Will repeat <n>
-    times."""
-    consec_time = 0
-    total_time = 0
+    complementarity between two randomly generated sequences as well as the
+    standard deviation between runs. Will repeat <n> times."""
+    consec_times = []
+    total_times = []
     for _ in range(n):
         seq1 = rand_seq(seq1_len)
         seq2 = rand_seq(seq2_len)
         ct, tt = base_comparison_times(Seq(seq1), Seq(seq2))
-        consec_time += ct
-        total_time += tt
-    return consec_time / n, total_time / n
+        consec_times.append(ct)
+        total_times.append(tt)
+    return sum(consec_times) / n, sum(total_times) / n, \
+           stdev(consec_times) + stdev(total_times)
 
 
 def main():
-    consec_time, total_time = time_for_n_random()
+    consec_time, total_time, stdv = time_for_n_random()
     print("Total Complementarity", total_time)
     print("Continuous Complementarity", consec_time)
-    print("Combined, Factored Time:", (total_time + consec_time) * factor)
+    print("Combined, Factored Time:", (total_time + consec_time) * factor,
+          ' +/-', stdv * factor)
 
 
 if __name__ == "__main__":
