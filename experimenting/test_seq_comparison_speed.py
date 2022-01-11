@@ -5,9 +5,9 @@ import timeit
 from hetero_spacer_generator.sequence_tools import SeqAnalyzer
 from statistics import stdev
 
-# What I use throughout the program to compare sequences.
+# What is use throughout the program to analyse sequences.
 sa = SeqAnalyzer(degen=False)
-random.seed()
+random.seed(a=100632289)
 
 # Length of the two sequences to be compared
 seq1_len = 32
@@ -16,7 +16,7 @@ seq2_len = 32
 # The number of different randomly generated sequences to compare.
 num_rand_seqs = 10000
 # The number of times to re-run each timing. Increases accuracy.
-num_repetitions = 10
+num_repetitions = 100
 # A factor by which to multiple the final time. To be used when expecting to
 # do more than one string comparison.
 factor = 3
