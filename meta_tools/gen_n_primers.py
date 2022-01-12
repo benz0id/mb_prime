@@ -1,14 +1,7 @@
-from Bio.Seq import Seq
-
-from hetero_spacer_generator.sequence_tools import is_degen
 from presenters import ConsolePresenter
-import demo_tools
 from time import time
 from hetero_spacer_generator.primer_tools import MBPrimerBuilder
-from typing import Dict, List, Union, Tuple
-from hetero_spacer_generator.defaults import ABSOLUTE_MAX_NUM_HETERO, \
-    ABSOLUTE_MAX_SPACER_LENGTH
-from time import sleep
+from typing import Dict
 import random
 from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import HeteroGen
 from pathlib import Path
