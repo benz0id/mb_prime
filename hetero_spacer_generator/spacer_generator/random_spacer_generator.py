@@ -1,7 +1,6 @@
 import random
 from abc import abstractmethod
 from typing import Dict, List
-from Bio.Seq import Seq
 
 from hetero_spacer_generator.defaults import INITIAL_PRIMER_SET_SIZE, \
     NUM_PAIRINGS_TO_COMP, NUM_HETERO, NUM_SPACERS
@@ -10,8 +9,7 @@ from hetero_spacer_generator.spacer_generator.spacer_filters import \
     SortForPairwise, SortForSimultaneous, SpacerAlignment, SpacerSet, \
     SpacerSorter
 from hetero_spacer_generator.primer_tools import HeteroSeqTool, \
-    IncompatibleSpacerError, MBPrimerBuilder, \
-    PairwisePrimerSet, PrimerSet
+    MBPrimerBuilder, PrimerSet
 
 
 class HeteroSpacerGen(HeteroSeqTool):

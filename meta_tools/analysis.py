@@ -15,11 +15,19 @@ RESULTS_PATH = Path('C:\\Users\\bfern\\OneDrive - University of Toronto\\Desktop
 
 def main():
     # === Config region ===
-    params = {RIGOUR: (-1, -1), REPLIC: (1, 10)}
-    dirpath = RESULTS_PATH / "Unoptimised Long Primers - Replicates\\Results"
+    # The range of parameters used to generate and/or analyse results files.
+    params = {RIGOUR: (-10, 10)}
+    # Directory containing results files.
+    dirpath = RESULTS_PATH / 'Optimal Primers - Rigour\\Results'
 
+    # One method will generate empty results files and analyse, the other will
+    # just analyse. WARNING: re-creating empty results files overrides any
+    # existing results files.
     # results = make_and_get_results(params, dirpath)
     results = get_all_results(dirpath)
+
+    # Do whatever you'd like with the results. See Result class for available
+    # data.
     analyse(results, params)
 
 

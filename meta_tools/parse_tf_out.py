@@ -1,8 +1,10 @@
 from pathlib import Path
 from typing import Tuple, List
 
+
 def SeqMisalignedError(Exception):
     """Thrown when the parser becomes misaligned with the sequence."""
+    pass
 
 
 class Homodimer(object):
@@ -142,7 +144,6 @@ class Heterodimer:
 
 def parse_tf_output(filepath: Path or str) -> Tuple[List[Homodimer],
                                                     List[Heterodimer]]:
-
 
     # Open file containing output from ThermoFisher multiple primer analyser.
     output_path = Path(Path(filepath))
