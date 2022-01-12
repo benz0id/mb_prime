@@ -1,3 +1,5 @@
+import os
+
 # === General Defaults ===
 NUM_SPACERS = 4
 # The default maximum length of any spacer created
@@ -46,3 +48,15 @@ DEGEN_TO_POSSIBLE = {
     # Custom: To be ignored.
     "I": ""
 }
+
+# === Misc ===
+
+# Verbosity
+V = True
+
+# Processes to spawn.
+NUM_PROCS = os.cpu_count()
+
+# Print runtime of methods.
+TIMING = True
+

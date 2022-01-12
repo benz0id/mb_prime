@@ -4,7 +4,7 @@ from typing import Any, Callable, Collection, Generic, Iterator, List, Tuple, \
     Dict, Iterable, Union, TypeVar
 
 from infinity import Infinity
-
+from multiprocessing import Process
 from hetero_spacer_generator.sequence_tools import SeqAnalyzer, \
     get_max_complementarity, \
     get_max_complementarity_consec
@@ -527,7 +527,7 @@ def calculate_score(scores: Collection[int]) -> int:
     <scores> has high variance."""
     variance = max(scores) - min(scores)
     avg = sum(scores) / len(scores)
-    return int(avg * variance / VARIANCE_IMPORTANCE)
+    return int(avg + variance / VARIANCE_IMPORTANCE)
 
 
 # Where <SpacersSets> is the set of all spacers seqs, <MBPrimerBuilder> is the
@@ -856,9 +856,10 @@ def get_n_lowest(scores: List[Union[int, float]], n: int, highest: bool = False)
 
     return min_items, min_scores
 
-
-
-
+def procs_join(procs: List[Process]) -> None:
+    """Pauses the program until all of <procs> have joined."""
+    for proc in procs:
+        proc.join()
 
 @functools.total_ordering
 class Comparable(ABC):

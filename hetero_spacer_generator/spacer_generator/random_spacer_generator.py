@@ -11,7 +11,7 @@ from hetero_spacer_generator.spacer_generator.spacer_filters import \
     SpacerSorter
 from hetero_spacer_generator.primer_tools import HeteroSeqTool, \
     IncompatibleSpacerError, MBPrimerBuilder, \
-    PrimerSet
+    PairwisePrimerSet, PrimerSet
 
 
 class HeteroSpacerGen(HeteroSeqTool):
@@ -68,6 +68,39 @@ class RandomSpacerGen(HeteroSpacerGen):
                                                   num_hetero)
         self.set_rigour(rigour)
 
+    def get_random_hetero_seqs(self, incomplete_forward_primer: MBPrimerBuilder,
+                               incomplete_reverse_primer: MBPrimerBuilder,
+                               forward_spacer: SpacerAlignment,
+                               reverse_spacer: SpacerAlignment,
+                               num_to_return: int) -> List[PrimerSet]:
+        """Generates <num_to_return> PrimerSets, without minimising
+        complementarity between the heterogeneity regions in the primers and
+        that of other sequences."""
+        forward_spacer_seqs = gen_hetero_set(incomplete_forward_primer,
+                                             forward_spacer,
+                                             self._random_per_align)
+        reverse_spacer_seqs = gen_hetero_set(incomplete_reverse_primer,
+                                             reverse_spacer,
+                                             self._random_per_align)
+
+        # Choose some number of random spacer sequences.
+        primer_sets = []
+        for i in range(num_to_return):
+            forward_primers = []
+            for seq in forward_spacer_seqs[i]:
+                incomplete_forward_primer.set_heterogen_seq(seq)
+                f_primer = incomplete_forward_primer.get_mbprimer()
+                forward_primers.append(f_primer)
+            reverse_primers = []
+            for seq in reverse_spacer_seqs[i]:
+                incomplete_reverse_primer.set_heterogen_seq(seq)
+                r_primer = incomplete_reverse_primer.get_mbprimer()
+                reverse_primers.append(r_primer)
+
+            primer_sets.append(PrimerSet(forward_primers, reverse_primers))
+
+        return primer_sets
+
     def get_hetero_seqs(self, incomplete_forward_primer: MBPrimerBuilder,
                         incomplete_reverse_primer: MBPrimerBuilder,
                         forward_spacer: SpacerAlignment,
@@ -104,16 +137,26 @@ class RandomSpacerGen(HeteroSpacerGen):
         according to <rigour>. """
         self._rigour = rigour
         if rigour > 0:
+            rigour += 1
             self._random_per_align = INITIAL_PRIMER_SET_SIZE * rigour
-            self._num_pairings_to_compare = int(NUM_PAIRINGS_TO_COMP * rigour)
+            # Square root to slow rate of growth.
+            self._num_pairings_to_compare = int(NUM_PAIRINGS_TO_COMP *
+                                             rigour ** (1/3))
             self._spacer_sorter.set_num_pairings_to_compare(
                 NUM_PAIRINGS_TO_COMP * rigour)
         elif rigour < 0:
+            rigour -= 1
             self._random_per_align = int(INITIAL_PRIMER_SET_SIZE /
                                          -rigour)
-            self._num_pairings_to_compare = int(NUM_PAIRINGS_TO_COMP / -rigour)
+            # Square root to slow rate of growth.
+            self._num_pairings_to_compare = int(NUM_PAIRINGS_TO_COMP /
+                                             (-rigour) ** (1/3))
             self._spacer_sorter.set_num_pairings_to_compare(
                 self._num_pairings_to_compare)
         elif rigour == 0:
-            raise ValueError("Rigour cannot be equal to 0")
+            self._random_per_align = INITIAL_PRIMER_SET_SIZE
+            # Square root to slow rate of growth.
+            self._num_pairings_to_compare = NUM_PAIRINGS_TO_COMP
+            self._spacer_sorter.set_num_pairings_to_compare(
+                self._num_pairings_to_compare)
 

@@ -7,19 +7,19 @@ from statistics import stdev
 
 # What is use throughout the program to analyse sequences.
 sa = SeqAnalyzer(degen=False)
-random.seed(a=100632289)
+random.seed(a=123456789, version=1)
 
 # Length of the two sequences to be compared
-seq1_len = 32
-seq2_len = 32
+seq1_len = 33
+seq2_len = 33
 
 # The number of different randomly generated sequences to compare.
-num_rand_seqs = 10000
+num_rand_seqs = 100
 # The number of times to re-run each timing. Increases accuracy.
 num_repetitions = 100
 # A factor by which to multiple the final time. To be used when expecting to
 # do more than one string comparison.
-factor = 3
+factor = 1
 
 
 def rand_seq(num: int) -> str:

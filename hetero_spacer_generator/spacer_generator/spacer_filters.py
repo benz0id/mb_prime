@@ -2,7 +2,8 @@ import abc
 from abc import abstractmethod
 from typing import Callable, List, Dict, Tuple
 from Bio.Seq import Seq
-
+from multiprocessing import Queue, Process
+from hetero_spacer_generator.defaults import V, TIMING, NUM_PROCS
 from hetero_spacer_generator.defaults import NUM_PAIRINGS_TO_COMP
 from hetero_spacer_generator.primer_tools import HalfSet, HeteroSeqTool, \
     MBPrimerBuilder, MaxInt, PairWiseCriterionSingle, PairwisePrimerSet, \
@@ -12,10 +13,12 @@ from hetero_spacer_generator.primer_tools import HalfSet, HeteroSeqTool, \
     eval_total_complementarity, evaluate_heterogen_binding_cross, \
     get_all_arrangements, get_cross_iteration_pattern, get_n_lowest, \
     get_n_lowest_matrix, \
-    get_these_inds, remove_highest_scores, EvalMBPrimer, calculate_score
+    get_these_inds, procs_join, remove_highest_scores, EvalMBPrimer, \
+    calculate_score
 
 # Intervals for clearing worst performing HalfSets in PairwiseSpacerSorter
 from hetero_spacer_generator.sequence_tools import is_degen
+import os
 
 FIRST_INTERVAL = 2
 REMOVE_HALFSET_INTERVAL = 2
@@ -27,6 +30,8 @@ SpacerAlignment = Tuple[int, int, int, int]
 # A list of four sets of forward or reverse heterogeneity spacer sequences.
 SpacerSet = Tuple[Seq, Seq, Seq, Seq]
 
+if TIMING:
+    import timeit
 
 
 class SpacerSorter(HeteroSeqTool, abc.ABC):
@@ -143,10 +148,11 @@ class SortForPairwise(SpacerSorter):
     _fullsets: List[List[PairwisePrimerSet]]
 
     def __init__(self, max_spacer_length: int, num_hetero: int,
-                 num_pairings_to_comp: int = NUM_PAIRINGS_TO_COMP, degen: bool = None) -> None:
+                 num_pairings_to_comp: int = NUM_PAIRINGS_TO_COMP,
+                 degen: bool = None) -> None:
         """May initialise a functionally empty class. Build method needs to be
         called in order to ensure proper method functionality."""
-        super().__init__(max_spacer_length, num_hetero, num_pairings_to_comp )
+        super().__init__(max_spacer_length, num_hetero, num_pairings_to_comp)
         self._degen = degen
         self._rigour = num_pairings_to_comp
         self._for_primer = MBPrimerBuilder()
@@ -174,7 +180,7 @@ class SortForPairwise(SpacerSorter):
         """Initialises the classes attributes to the given values.
         Precondition:
                 len(for_seqs) == len(rev_seqs)"""
-        if self._degen is not None and not self._degen:
+        if not self._degen:
             self._do_degen_check(for_primer)
             self._do_degen_check(rev_primer)
         self._primer_evaluator = EvalMBPrimer(max_spacer_length, num_hetero,
@@ -273,9 +279,33 @@ class SortForPairwise(SpacerSorter):
         self._build_full(self._max_spacer_length, self._num_hetero,
                          incomplete_forward_primer, incomplete_reverse_primer,
                          forward_spacers, reverse_spacers)
-        self._evaluate_scores_single()
-        self._sort_and_trim()
-        self._score_primer_sets()
+        if TIMING:
+            single_scoring = self._evaluate_scores_single
+            double_scoring = self._score_primer_sets
+
+            self._primer_evaluator.start_counting_comparisons()
+            sst = timeit.timeit(single_scoring, number=1)
+            count = self._primer_evaluator.stop_counting_comparisons()
+            print("Primer sets evaluated individually (2x{num_primers}) in "
+                  "{time:.2f} seconds using "
+                  "{cnt} sequence comparisons.".
+                  format(time=sst, cnt=count, num_primers=len(self._for_seqs)))
+
+            self._sort_and_trim()
+
+            self._primer_evaluator.start_counting_comparisons()
+            dst = timeit.timeit(double_scoring, number=1)
+            count = self._primer_evaluator.stop_counting_comparisons()
+            print("Primer evaluated together ({len1}x{len2}) in {time:.2f} "
+                  "seconds using {cnt} sequence comparisons.".
+                  format(time=dst, cnt=count, len1=len(self._for_halfsets),
+                         len2=len(self._rev_halfsets)))
+
+        else:
+            self._evaluate_scores_single()
+            self._sort_and_trim()
+            self._score_primer_sets()
+
         return self._get_lowest_scoring_sets(num_to_return)
 
     def _construct_half_sets(self) -> None:
@@ -355,23 +385,72 @@ class SortForPairwise(SpacerSorter):
         self._construct_full_set_matrix()
         # Symmetric iteration pattern.
         iter_pttrn = get_cross_iteration_pattern(self._num_pairings_to_compare)
+        if NUM_PROCS > 1:
+            # For communicating indices of FullSets to be evaluated to daughter
+            # processes and receiving completed FullSets.
+            # format: Tuple(int, int)
+            inds = Queue()
+            # format: Tuple(int, int, FullSet)
+            completed = Queue()
+            processes = []
+            for _ in range(NUM_PROCS):
+                processes.append(Process(target=self._proc_eval_fullset_pair,
+                                         args=(inds, completed)))
+            for process in processes:
+                process.start()
 
         # Iterate through the full set. Is costly to evaluate set with criteria,
         # so continually remove the worst performing ones.
         for i in range(self._num_pairings_to_compare):
+
             # Remove worst scoring set after a given interval
             if i - FIRST_INTERVAL >= 0 \
                     and (i - FIRST_INTERVAL) % REMOVE_HALFSET_INTERVAL == 0:
                 self._update_averages()
                 self._remove_worst_performing()
+
+            to_collect = 0
+            # Delegate responsibility to the processes
             for j in range(self._num_pairings_to_compare):
                 f, r = iter_pttrn[i][j]
                 # If sets are still active, do evaluation.
                 if self._for_halfsets[f].is_active() \
                         and self._rev_halfsets[r].is_active():
-                    self._fullsets[f][r].apply_criteria(
-                        self._pair_criteria,
-                        self._pair_criteria_weights_list)
+                    if NUM_PROCS > 1:
+                        to_collect += 1
+                        inds.put((f, r))
+                    else:
+                        self._fullsets[f][r].apply_criteria(
+                            self._pair_criteria,
+                            self._pair_criteria_weights_list)
+
+            if NUM_PROCS > 1:
+                # Collect FullSets
+                for _ in range(to_collect):
+                    f, r, fullset = completed.get()
+                    self._fullsets[f][r] = fullset
+
+            if V:
+                percent_complete = (i + 1) / self._num_pairings_to_compare * 100
+
+                print("{prcnt:.2f}% complete...".
+                      format(prcnt=percent_complete))
+
+        if NUM_PROCS > 1:
+            # Add stop commands to queue.
+            for _ in range(NUM_PROCS):
+                inds.put((-1, -1))
+
+    def _proc_eval_fullset_pair(self, q_in: Queue, q_out: Queue) -> None:
+        """Evaluates the fullset at the given position."""
+        f, r = q_in.get()
+        while f >= 0:
+            self._fullsets[f][r].apply_criteria(
+                self._pair_criteria,
+                self._pair_criteria_weights_list)
+            q_out.put((f, r, self._fullsets[f][r]))
+            f, r = q_in.get()
+
 
     def _get_lowest_scoring_sets(self, num_sets: int) \
             -> List[PairwisePrimerSet]:

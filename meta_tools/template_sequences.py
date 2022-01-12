@@ -1,26 +1,31 @@
 from Bio.Seq import Seq
-from typing import List
+from typing import List, Tuple
+
 
 class GenSet:
     """Stores primers to be used in testing of primer generation algorithms.
 
     All attributes are public.
     """
-    forward_binding: List[Seq]
-    reverse_binding: List[Seq]
-    forward_adapters: List[Seq]
-    reverse_adapters: List[Seq]
+    for_bindings: List[Seq]
+    rev_bindings: List[Seq]
+    for_adapters: List[Seq]
+    rev_adapters: List[Seq]
 
     def __init__(self) -> None:
         """Initialises and empty GenSet"""
         return
 
+    def unpack(self) -> Tuple[List[Seq], List[Seq], List[Seq], List[Seq]]:
+        return self.for_bindings, self.rev_bindings, \
+               self.for_adapters, self.rev_adapters
+
     def useable(self) -> bool:
         """Returns whether this class has all attributes instantiated with
         proper values."""
         try:
-            if len(self.forward_binding) == len(self.reverse_binding) and \
-                    len(self.forward_adapters) == len(self.reverse_adapters):
+            if len(self.for_bindings) == len(self.rev_bindings) and \
+                    len(self.for_adapters) == len(self.rev_adapters):
                 return True
             else:
                 return False
@@ -28,7 +33,7 @@ class GenSet:
             return False
 
     def has_binding_num(self, ind: int) -> bool:
-        return min(len(self.forward_binding), len(self.reverse_binding)) < ind
+        return min(len(self.for_bindings), len(self.rev_bindings)) < ind
 
 
 STANDARD_SET = GenSet()
@@ -74,3 +79,10 @@ SMALL_BINDING_SET.rev_bindings = [Seq('TGTGG').reverse_complement(),
                   Seq('ATCAT').reverse_complement(),
                   Seq('CCGAG').reverse_complement(),
                   Seq('AATTG').reverse_complement()]
+
+OPTIMAL_SET = GenSet()
+
+OPTIMAL_SET.for_adapters = [Seq("TTTAGGACCGGGGAATCGGTAGGCGAACGA")]
+OPTIMAL_SET.rev_adapters = [Seq('CTAGTGCTACGGAGTAGGCATTTATATTTA')]
+OPTIMAL_SET.for_bindings = [Seq('CGTATCCCGAATTAGCCAGTTTGGATGGGT')]
+OPTIMAL_SET.rev_bindings = [Seq('ACATCTTCCTTCACAGGGTTCCAGTCACCA')]

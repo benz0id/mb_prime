@@ -12,23 +12,25 @@ from time import sleep
 import random
 from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import HeteroGen
 from pathlib import Path
-
+from template_sequences import *
+DESKTOP = Path('C:\\Users\\bfern\\OneDrive - University of Toronto\\Desktop')
 
 
 RIGOUR = 1
-NUM_SETS = 3
-OUT_FILE = Path('C:\\Users\\bfern\\OneDrive - University of Toronto\\Desktop\\Short Primers')
+NUM_SETS = 1
+OUT_FILE = DESKTOP / Path("Analysis Datasets\\Optimal Primers - Rigour\\Primer Sets")
 VERBOSE = True
 DO_FASTA = True
+GEN_SET = OPTIMAL_SET
+GEN_OUTPUT = True
 
 
 def main():
-    for rigour in range(0, 3):
+    for rigour in range(-20, 20):
         filename = "Rigour " + str(rigour)
         print(filename)
-        get_primer_sets(for_adapter, rev_adapter, for_bindings, rev_bindings, NUM_SETS,
-                    rigour=rigour, filepath=OUT_FILE, V=VERBOSE, fasta=DO_FASTA,
-                        multi_file=False, filename=filename)
+        get_primer_sets(GEN_SET, NUM_SETS, multi_file=False, filename=filename,
+                        rigour=rigour)
 
 
 def get_n_primer_sets(for_adapter: Seq, rev_adapter: Seq, for_binding: Seq,
@@ -92,20 +94,24 @@ def get_n_primer_sets(for_adapter: Seq, rev_adapter: Seq, for_binding: Seq,
 
     return(primer_str)
 
-def get_primer_sets(for_adapter: Seq, rev_adapter: Seq, for_bindings: List[Seq],
-                    rev_bindings: List[Seq], n: int, rigour: int = RIGOUR, filepath: Path = OUT_FILE,
-                    sep: str = '\n', V: bool = False, fasta: bool = False,
-                    multi_file = True, filename: str = "Primer Set") -> None:
+def get_primer_sets(gen_set: GenSet, n: int, rigour: int = RIGOUR, filepath: Path = OUT_FILE,
+                    sep: str = '\n', V: bool = VERBOSE, fasta: bool = False,
+                    multi_file=True, filename: str = "Primer Set") -> None:
     """Runs gen_n_primers for each of the given binding sequences with the given
      parameters. Stores the output in text files in <filepath>. Will place
      all sets into a single file iff multi_file, othwise will create output file
      for each pair of forward and reverse primers."""
+    if not gen_set.useable():
+        raise ValueError("Gen set is unusable. Make sure it is properly "
+                         "instantiated.")
 
-
+    for_adapters, rev_adapters, for_bindings, rev_bindings = gen_set.unpack()
     out_str = ''
     for i in range(min(len(for_bindings), len(rev_bindings))):
         for_binding = for_bindings[i]
         rev_binding = rev_bindings[i]
+        for_adapter = rev_adapters[i]
+        rev_adapter = for_adapters[i]
 
         if not multi_file:
             ind = i
@@ -120,13 +126,13 @@ def get_primer_sets(for_adapter: Seq, rev_adapter: Seq, for_bindings: List[Seq],
             txt_path = filepath / "{filename}@set{num:d}.txt".format(filename = filename,
             num = i + 1)
         # Store string in file.
-        if multi_file:
+        if multi_file and GEN_OUTPUT:
             with open(txt_path, "w") as my_file:
                 my_file.write(s)
         else:
             out_str += s
 
-    if not multi_file:
+    if not multi_file and GEN_OUTPUT:
         if fasta:
             txt_path = filepath / (filename + ".fst")
         else:

@@ -191,9 +191,17 @@ def compare_bases_degenerate(b1: str, b2: str) -> bool:
 class SeqAnalyzer:
     """Responsible for analysing features of sequences."""
 
+    # Whether the degenerate bases have been specified as allowed or disallowed.
     _degeneracy_specified: bool
+    # Whether to expect degeneracy in input sequences. False if not specified.
     _expect_degeneracy: bool
+    # Method used to compare individual bases.
     _base_comp_method: Callable[[str, str], bool]
+    # Whether this analysed should count the number of times its core comparison
+    # method has been called.
+    _counting: bool
+    # Number of times this function's core comparison methods have been called.
+    _count: int
 
     def __init__(self, degen: bool = None) -> None:
         """Initialises this SeqAnalyser. If degeneracy is to be expected,
@@ -203,6 +211,19 @@ class SeqAnalyzer:
         else:
             self._degeneracy_specified = False
             self._expect_degeneracy = False
+        self._counting = False
+        self._count = 0
+
+    def start_counting_comparisons(self) -> None:
+        """Begins counting the number of sequence analyses performed."""
+        self._count = 0
+        self._counting = True
+
+    def stop_counting_comparisons(self) -> int:
+        """Returns the number of sequence analyses performed since
+        start_counting_comparisons was last called."""
+        self._counting = True
+        return self._count
 
     def expect_degeneracy(self, expect_degeneracy: bool) -> None:
         """Specifies whether degenerate bases should be expected. It is
@@ -248,6 +269,9 @@ class SeqAnalyzer:
             switched."""
 
         self.degen_check([seq1, seq2])
+
+        if self._counting:
+            self._count += 1
 
         max_val = 0
         l_seq, s_seq, flipped = order_seqs(seq1, seq2)
@@ -298,7 +322,7 @@ class SeqAnalyzer:
         length = len(seq1)
 
         for i in range(length):
-            if seq1[i] == seq2[i]:
+            if self._base_comp_method(seq1[i], seq2[i]):
                 running_consec += 1
             else:
                 if max_consec < running_consec:
@@ -316,7 +340,7 @@ class SeqAnalyzer:
 
         num_comp = 0
         for i in range(len(seq1)):
-            if seq1[i] == seq2[i]:
+            if self._base_comp_method(seq1[i], seq2[i]):
                 num_comp += 1
         return num_comp
 
