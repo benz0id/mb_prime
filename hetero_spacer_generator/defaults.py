@@ -1,4 +1,23 @@
 import os
+from pathlib import Path
+
+# === Misc ===
+
+# Verbosity
+V = True
+
+# Processes to spawn.
+NUM_PROCS = os.cpu_count()
+
+# Print runtime of methods.
+TIMING = True
+
+#  Store csv of primer output files.
+SCORE_CSV = True
+
+# The path to deposit the csv scores path.
+CSV_PATH = Path('C:\\Users\\bfern\\OneDrive - University of Toronto\\Desktop\\'
+                'Scores CSV')
 
 # === General Defaults ===
 NUM_SPACERS = 4
@@ -9,6 +28,8 @@ ABSOLUTE_MAX_SPACER_LENGTH = 50
 # the primer
 NUM_HETERO = 12
 ABSOLUTE_MAX_NUM_HETERO = 50
+RIGOUR = 0
+
 
 # === Random sampling defaults ===
 # The number of forward and reverse primers to compare against each other.
@@ -48,15 +69,4 @@ DEGEN_TO_POSSIBLE = {
     # Custom: To be ignored.
     "I": ""
 }
-
-# === Misc ===
-
-# Verbosity
-V = True
-
-# Processes to spawn.
-NUM_PROCS = os.cpu_count()
-
-# Print runtime of methods.
-TIMING = True
 

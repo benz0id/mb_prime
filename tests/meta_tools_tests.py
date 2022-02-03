@@ -1,6 +1,6 @@
-from tests.fixtures_and_helpers import *
+from meta_tools.analysis_tools import RIGOUR, SETNUM, SETSIZE
 from meta_tools.compute_results import *
-import pytest
+
 
 def get_complex_params_files() -> Tuple[Dict[str, Tuple[int, int]], List[str]]:
     """Returns a dictionary of parameters and their ranges and a list of

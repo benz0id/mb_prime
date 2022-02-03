@@ -1,10 +1,11 @@
 import abc
+import math
 from abc import abstractmethod
-from typing import Callable, List, Dict, Tuple
+from typing import Callable, List, Dict, Optional, Tuple, Union
 from Bio.Seq import Seq
 from multiprocessing import Queue, Process
-from hetero_spacer_generator.defaults import V, TIMING, NUM_PROCS
-from hetero_spacer_generator.defaults import NUM_PAIRINGS_TO_COMP
+from hetero_spacer_generator.defaults import V, TIMING, NUM_PROCS, \
+    NUM_PAIRINGS_TO_COMP
 from hetero_spacer_generator.primer_tools import HalfSet, HeteroSeqTool, \
     MBPrimerBuilder, MaxInt, PairWiseCriterionSingle, PairwisePrimerSet, \
     PrimerSet, \
@@ -13,8 +14,11 @@ from hetero_spacer_generator.primer_tools import HalfSet, HeteroSeqTool, \
     eval_total_complementarity, evaluate_heterogen_binding_cross, \
     get_all_arrangements, get_cross_iteration_pattern, get_n_lowest, \
     get_n_lowest_matrix, \
-    get_these_inds, procs_join, remove_highest_scores, EvalMBPrimer, \
-    calculate_score
+    get_these_inds, remove_highest_scores, calculate_score
+from hetero_spacer_generator.spacer_generator.criteria import EvalMBPrimer, \
+    get_hetero_hetero_binding_criteria, \
+    get_homo_hetero_binding_criteria
+from statistics import mean
 
 # Intervals for clearing worst performing HalfSets in PairwiseSpacerSorter
 from hetero_spacer_generator.sequence_tools import is_degen
@@ -76,6 +80,8 @@ class SortForPairwise(SpacerSorter):
     _rev_seqs:
             A list of heterogeneity spacer sequences meant to pair with
             _rev_primer.
+    _initial_num_seqs:
+            The initial number of _for_seqs passed.
 
     _single_criteria:
             A list of callables that evaluate some aspect of a spacer
@@ -89,6 +95,7 @@ class SortForPairwise(SpacerSorter):
             The scores of the forward primer sets.
     _rev_single_scores:
             The scores of the reverse primer sets.
+
 
     _pair_criteria:
             A list of callables that rate a list of forward and reverse spacers
@@ -120,7 +127,7 @@ class SortForPairwise(SpacerSorter):
     _fullsets:
             Full sets of primers constructed from the forward and reverse
             halfsets.
-    """
+        """
 
     _degen: bool
 
@@ -131,6 +138,7 @@ class SortForPairwise(SpacerSorter):
 
     _for_seqs: List[SpacerSet]
     _rev_seqs: List[SpacerSet]
+    _initial_num_seqs: int
 
     _single_criteria: List[PairWiseCriterionSingle]
     _single_criteria_weights: Dict[PairWiseCriterionSingle, int]
@@ -154,7 +162,8 @@ class SortForPairwise(SpacerSorter):
         called in order to ensure proper method functionality."""
         super().__init__(max_spacer_length, num_hetero, num_pairings_to_comp)
         self._degen = degen
-        self._rigour = num_pairings_to_comp
+        self._primer_evaluator = EvalMBPrimer(max_spacer_length, num_hetero,
+                                              self._degen)
         self._for_primer = MBPrimerBuilder()
         self._rev_primer = MBPrimerBuilder()
         self._for_seqs = []
@@ -162,6 +171,7 @@ class SortForPairwise(SpacerSorter):
         self._for_single_scores = []
         self._rev_single_scores = []
         self._pair_criteria = []
+        self._build_criteria()
 
     def _do_degen_check(self, primer: MBPrimerBuilder) -> None:
         """Checks the sequences to be used in this filter for degeneracy,
@@ -180,16 +190,17 @@ class SortForPairwise(SpacerSorter):
         """Initialises the classes attributes to the given values.
         Precondition:
                 len(for_seqs) == len(rev_seqs)"""
+        super().__init__(max_spacer_length, num_hetero,
+                         self._num_pairings_to_compare)
         if not self._degen:
             self._do_degen_check(for_primer)
             self._do_degen_check(rev_primer)
-        self._primer_evaluator = EvalMBPrimer(max_spacer_length, num_hetero,
-                                              self._degen)
         self._primer_arrangements = get_all_arrangements(4, 4)
         self._for_primer = for_primer
         self._rev_primer = rev_primer
         self._for_seqs = for_seqs
         self._rev_seqs = rev_seqs
+        self._initial_num_seqs = len(for_seqs)
         self._for_single_scores = []
         self._rev_single_scores = []
         self._for_halfsets = []
@@ -198,28 +209,14 @@ class SortForPairwise(SpacerSorter):
             self._rev_single_scores.append(1)
             self._for_single_scores.append(1)
 
-        self._pair_criteria = []
-        self._build_criteria()
-
     # INSERT NEW CRITERIA HERE
     def _build_criteria(self) -> None:
         """Constructs the criteria attributes with some Callables"""
-        self._single_criteria = [
-            self._primer_evaluator.eval_homo_hetero_spacer_binding_consec,
-            self._primer_evaluator.eval_homo_hetero_spacer_binding_total
-        ]
-        self._single_criteria_weights = {
-            self._primer_evaluator.eval_homo_hetero_spacer_binding_consec: 2,
-            self._primer_evaluator.eval_homo_hetero_spacer_binding_total: 1
-        }
-        self._pair_criteria = [
-            self._primer_evaluator.eval_hetero_hetero_spacer_binding_consec,
-            self._primer_evaluator.eval_hetero_hetero_spacer_binding_total
-        ]
-        self._pair_criteria_weights = {
-            self._primer_evaluator.eval_hetero_hetero_spacer_binding_consec: 2,
-            self._primer_evaluator.eval_hetero_hetero_spacer_binding_total: 1
-        }
+        self._single_criteria, self._single_criteria_weights = \
+            get_homo_hetero_binding_criteria(self._primer_evaluator)
+
+        self._pair_criteria, self._pair_criteria_weights = \
+            get_hetero_hetero_binding_criteria(self._primer_evaluator)
         self._pair_criteria_weights_list = []
         for criterion in self._pair_criteria:
             self._pair_criteria_weights_list.append(
@@ -273,7 +270,7 @@ class SortForPairwise(SpacerSorter):
                                     forward_spacers: List[SpacerSet],
                                     reverse_spacers: List[SpacerSet],
                                     num_to_return: int, degen: bool = None) \
-            -> List[PrimerSet]:
+            -> List[PairwisePrimerSet]:
         """Returns the PrimerSets best suited for pairwise PCR for
         metabarcoding."""
         self._build_full(self._max_spacer_length, self._num_hetero,
@@ -305,8 +302,115 @@ class SortForPairwise(SpacerSorter):
             self._evaluate_scores_single()
             self._sort_and_trim()
             self._score_primer_sets()
+        self._print_or_csv(V, False)
 
         return self._get_lowest_scoring_sets(num_to_return)
+
+    @staticmethod
+    def get_csv_formatting_str() -> str:
+        """Returns a string with formatting of csv returned by
+        self._print_or_csv."""
+        return 'sets evaluated for homogeneity (x2), ' \
+               'pairs evaluated for heterogeneity(~^2), ' \
+               'filtered forward homo avg,' \
+               'filtered reverse homo avg,' \
+               'forward homo min,' \
+               'reverse homo min,' \
+               'hetero avg, ' \
+               'hetero min, ' \
+               'best set forward homogeneity, ' \
+               'best set reverse homogeneity, ' \
+               'best set heterogeneity'
+
+    def _print_attributes(self) -> None:
+        """Prints the attributes of the current *completed* filter results."""
+        self._print_or_csv(True, False)
+
+    def get_csv(self) -> Tuple[float]:
+        """Returns the attributes of the current *completed* filter results in
+        csv format."""
+        return self._print_or_csv(False, True)
+
+    def _print_or_csv(self, prnt: bool, csv: bool) -> Optional[Tuple[float]]:
+        """Iff csv, returns a str rep of a tuple of various score attributes.
+        Iff <prnt>, prints a string representation of the results."""
+        if prnt or csv:
+            # Compile the values required for csv string or print.
+            sets_eval_homo = self._initial_num_seqs
+            pairs_eval_hetero = self._num_pairings_to_compare
+            forward_homo_avg = mean(self._for_single_scores)
+            reverse_homo_avg = mean(self._rev_single_scores)
+            forward_homo_min = min(self._for_single_scores)
+            reverse_homo_min = min(self._rev_single_scores)
+
+            hetero_sum = 0
+            hetero_num = 0
+            hetero_min = MaxInt()
+            min_set_f = -1
+            min_set_r = -1
+            # For each FullSet if it has been scored, include it in the average.
+            for f in range(self._num_pairings_to_compare):
+                for r in range(self._num_pairings_to_compare):
+                    fs = self._fullsets[f][r]
+                    # Select fullset, update values if neccesaru
+                    if fs.has_been_scored():
+                        hetero_sum += fs.get_score()
+                        hetero_num += 1
+                        if fs.get_score() < hetero_min:
+                            hetero_min = fs.get_score()
+                            min_set_f = f
+                            min_set_r = r
+
+            hetero_avg = hetero_sum / hetero_num
+
+            best_for_homo = self._for_single_scores[min_set_f]
+            best_rev_homo = self._rev_single_scores[min_set_r]
+            best_hetero = hetero_min
+
+        # Print out the string describing the findings from this run.
+            if prnt:
+                # Plurality string
+                msg = 'Hetero Comp: {cc} - Homo Comp: {hc}\n'.format(
+                    cc=sets_eval_homo, hc=pairs_eval_hetero
+                )
+                msg += "For Homo Avg: {fa:.2f} - Rev Homo Avg: {ra:.2f}\n".format(
+                    fa=forward_homo_avg,
+                    ra=reverse_homo_avg
+                )
+                msg += "For Homo Min: {fa} - Rev Homo Min: {ra}\n".format(
+                    fa=forward_homo_min,
+                    ra=reverse_homo_min
+                )
+
+
+                msg += "Hetero Avg: {ha:.3f}\n".format(
+                    ha=hetero_avg
+                )
+                msg += "Best primer set:\n"
+
+                msg += "Hetero: {hs} - For Homo: {fh} - Rev Homo {rh}\n" \
+                        .format(hs=best_hetero, fh=best_for_homo,
+                                rh=best_rev_homo
+                                )
+                print(msg)
+
+            # If a CSV was requested, return it.
+            if csv:
+                tup = (
+                    sets_eval_homo,
+                    pairs_eval_hetero,
+                    forward_homo_avg,
+                    reverse_homo_avg,
+                    forward_homo_min,
+                    reverse_homo_min,
+                    hetero_avg,
+                    hetero_min,
+                    best_for_homo,
+                    best_rev_homo,
+                    best_hetero
+                )
+                return tup
+        return None
 
     def _construct_half_sets(self) -> None:
         """Returns (forward_halfset, reverse_halfset) constructed from the
@@ -331,6 +435,45 @@ class SortForPairwise(SpacerSorter):
                     self._for_halfsets[f], self._rev_halfsets[r]))
         return
 
+    def _get_fullset_matrix_string(self) -> str:
+        """Returns a string representation of the current fullset matrix and the
+        scores it contains."""
+
+        tab_len = 5
+        def app_get_ts(s: str, nt: int = 1) -> str:
+            """Appends tabs as neccesary so that the string fits into a 2 tab/
+            column matrix string."""
+
+            ns = nt * tab_len - len(s)
+            return s + ' ' * ns
+
+        rtrn_str = app_get_ts('', nt=3)
+        # Forward
+        for f, hs in enumerate(self._for_halfsets):
+            rtrn_str += app_get_ts("FS{ind}".format(ind=f))
+        rtrn_str += '\n'
+        rtrn_str += app_get_ts('', nt=3)
+        for f, hs in enumerate(self._for_halfsets):
+            rtrn_str += app_get_ts(str('{score:.1f}'.format(score=hs.get_avg())))
+        rtrn_str += '\n'
+        for r, rhs in enumerate(self._rev_halfsets):
+            rtrn_str += app_get_ts("RS{ind}".format(ind=r), nt=1)
+            rtrn_str += app_get_ts(' {score:.1f}'.format(
+                score=rhs.get_avg()), nt=2)
+            for f, fhs in enumerate(self._for_halfsets):
+                # It's been scored, add its score.
+                if self._fullsets[f][r].has_been_scored():
+                    rtrn_str += app_get_ts('{score}'.format(
+                        score=self._fullsets[f][r].get_score()))
+                # Unscored and row removed. Pass.
+                elif not (fhs.is_active() and rhs.is_active()):
+                    rtrn_str += app_get_ts('%')
+                # Not yet scored, but still included.
+                else:
+                    rtrn_str += app_get_ts('-')
+            rtrn_str += '\n'
+        return rtrn_str
+
     def _get_row_average(self, row: int) -> float:
         """Gets the average of the scored fullsets in some <row> of
         <self._fullsets>."""
@@ -349,7 +492,8 @@ class SortForPairwise(SpacerSorter):
         num = 0
         for i in range(self._num_pairings_to_compare):
             if self._fullsets[i][col].has_been_scored():
-                sum_fullsets += self._fullsets[i][col].get_min_pairing_score()
+                full_set = self._fullsets[i][col]
+                sum_fullsets += full_set.get_min_pairing_score()
                 num += 1
         return sum_fullsets / num
 
@@ -357,11 +501,13 @@ class SortForPairwise(SpacerSorter):
         """Updates the averages of the HalfSets."""
         for f in range(self._num_pairings_to_compare):
             if self._for_halfsets[f].is_active():
-                self._for_halfsets[f].set_avg(self._get_row_average(f))
+                row_avg = self._get_row_average(f)
+                self._for_halfsets[f].set_avg(row_avg)
 
         for r in range(self._num_pairings_to_compare):
             if self._for_halfsets[r].is_active():
-                self._for_halfsets[r].set_avg(self._get_col_average(r))
+                col_avg = self._get_col_average(r)
+                self._rev_halfsets[r].set_avg(col_avg)
         return
 
     def _remove_worst_performing(self) -> None:
@@ -370,8 +516,14 @@ class SortForPairwise(SpacerSorter):
         for_scores = []
         rev_scores = []
         for i in range(self._num_pairings_to_compare):
-            for_scores.append(self._for_halfsets[i].get_avg())
-            rev_scores.append(self._rev_halfsets[i].get_avg())
+            if self._for_halfsets[i].is_active():
+                for_scores.append(self._for_halfsets[i].get_avg())
+            else:
+                for_scores.append(0)
+            if self._rev_halfsets[i].is_active():
+                rev_scores.append(self._rev_halfsets[i].get_avg())
+            else:
+                rev_scores.append(0)
         worst_for_index = get_n_lowest(for_scores, 1, highest=True)[0][0]
         worst_rev_index = get_n_lowest(rev_scores, 1, highest=True)[0][0]
         self._for_halfsets[worst_for_index].deactivate()
@@ -386,7 +538,7 @@ class SortForPairwise(SpacerSorter):
         # Symmetric iteration pattern.
         iter_pttrn = get_cross_iteration_pattern(self._num_pairings_to_compare)
         if NUM_PROCS > 1:
-            # For communicating indices of FullSets to be evaluated to daughter
+            # For communicating indices of FullSets to be evaluated to child
             # processes and receiving completed FullSets.
             # format: Tuple(int, int)
             inds = Queue()
@@ -432,9 +584,10 @@ class SortForPairwise(SpacerSorter):
 
             if V:
                 percent_complete = (i + 1) / self._num_pairings_to_compare * 100
-
+                self._update_averages()
                 print("{prcnt:.2f}% complete...".
                       format(prcnt=percent_complete))
+                print(self._get_fullset_matrix_string())
 
         if NUM_PROCS > 1:
             # Add stop commands to queue.
@@ -451,7 +604,6 @@ class SortForPairwise(SpacerSorter):
             q_out.put((f, r, self._fullsets[f][r]))
             f, r = q_in.get()
 
-
     def _get_lowest_scoring_sets(self, num_sets: int) \
             -> List[PairwisePrimerSet]:
         """Constructs a matrix containing the scores of the now evaluated
@@ -460,16 +612,16 @@ class SortForPairwise(SpacerSorter):
         for f in range(self._num_pairings_to_compare):
             scores.append([])
             for r in range(self._num_pairings_to_compare):
-                if not self._for_halfsets[f].is_active() \
-                        or not self._rev_halfsets[r].is_active():
-                    scores[f].append(MaxInt())
+                if self._fullsets[f][r].has_been_scored():
+                    scores[f].append(self._fullsets[f][r].get_min_pairing_score())
                 else:
-                    scores[f].append(
-                        self._fullsets[f][r].get_min_pairing_score())
+                    scores[f].append(MaxInt())
         lowest_scoring_inds = get_n_lowest_matrix(scores, num_sets)[0]
         lowest_scoring = []
         for ind in lowest_scoring_inds:
-            lowest_scoring.append(self._fullsets[ind[0]][ind[1]])
+            f, r = ind
+            lowest_scoring.append(self._fullsets[f][r])
+
         return lowest_scoring
 
 

@@ -1,12 +1,16 @@
+from hetero_spacer_generator.spacer_generator.spacer_filters import \
+    SortForPairwise
 from presenters import ConsolePresenter
 from time import time
-from hetero_spacer_generator.primer_tools import MBPrimerBuilder
-from typing import Dict
+from hetero_spacer_generator.primer_tools import MBPrimerBuilder, MaxInt, \
+    PrimerSet
+from typing import Dict, TypeVar, Union
 import random
 from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import \
     HeteroGen
 from pathlib import Path
 from template_sequences import *
+from hetero_spacer_generator.defaults import V
 
 DESKTOP = Path('C:\\Users\\bfern\\OneDrive - University of Toronto\\Desktop')
 
@@ -15,151 +19,250 @@ RIGOUR = 1
 # The number of sets generated for binding sequence - adapter pair.
 NUM_SETS = 1
 # Output file for primers.
-OUT_FILE = DESKTOP / Path(
-    "Analysis Datasets\\Optimal Primers - Rigour\\Primer Sets")
+OUT_FILE = DESKTOP / "Demo\\Output Primers"
 # Print additional information
-VERBOSE = True
+VERBOSE = V
 # Format the output in fasta format. Required for TF analysis.
 DO_FASTA = True
 # Starting adapters and binding sequences. See available in
 # meta_tools.template_sequences.py
-GEN_SET = OPTIMAL_SET
+GEN_SET = STANDARD_SET
 # Whether output files should actually be made.
 GEN_OUTPUT = True
 # Whether you'd like seperate files for each binding seq - adapter pair.
 MULTI_FILE = False
+# Whether you'd like to have a csv file containing the generated scores returned
+# A CSV will be created for each call to output_primer_sets
+CSV = True
+
+# Size of heterogeneity region
+NUM_HETERO = 12
+# Maximum spacer length
+MAX_SPACER_LENGTH = 12
 
 
-# I've left the above variables as default values in get_primer_sets, in case
+# I've left the above variables as default values in output_primer_sets, in case
 # you'd like to vary them, as shown below.
 
 # Put whatever you'd like to do in here.
 def main():
-    for rigour in range(-20, 20):
-        filename = "Rigour " + str(rigour)
-        print(filename)
-        get_primer_sets(GEN_SET, NUM_SETS, filename=filename,
-                        rigour=rigour)
+    num_to_gen = 10
+    rig_range = [MaxInt(False)]
+    rig_range.extend(list(range(-20, 7, 2)))
+    for gen_set in ALEX_SETS:
+        filep = DESKTOP / 'Alex Sets' / gen_set.name
+        safe_make(filep)
+        run_name = gen_set.name
+        output_primer_sets(gen_set, n=num_to_gen, rigour=rig_range,
+                           filepath=filep, filename=run_name)
 
 
-def get_n_primer_sets(for_adapter: Seq, rev_adapter: Seq, for_binding: Seq,
-                      rev_binding: Seq, n: int, rigour: int, sep: str = '\n',
-                      V: bool = False, fasta: bool = False,
-                      ind: int = 0) -> str:
-    """Returns a list of <n> sets of primers, generated using the given
-    components, with <rigour>. Seperates each set with <sep>. Will print
-    additional information to console iff <V>. Will format data in fasta format
-    iff fasta. Will shift the index of the printed primer by <ind> * <n> bases."""
+def safe_make(path: Path) -> None:
+    """Makes the given <path> directory if it does not already exist."""
+    if not path.exists():
+        path.mkdir()
+    else:
+        if VERBOSE:
+            print(str(path), 'already exists.')
 
-    hg = HeteroGen(presenter=ConsolePresenter())
 
-    set_list = []
+class PrimerGen:
+    """Generates sets of primers."""
+    _set_list: List[PrimerSet]
+    _fresh_sets: bool
+    _csv_str: str
 
-    incomplete_forward_primer = MBPrimerBuilder(adapter_seq=for_adapter,
-                                                binding_seq=for_binding)
-    incomplete_reverse_primer = MBPrimerBuilder(adapter_seq=rev_adapter,
-                                                binding_seq=rev_binding)
+    def __init__(self):
+        """Initialises an empty primer gen class."""
+        self._set_list = []
+        self._fresh_sets = False
+        self._csv_str = ''
 
-    # Choose n random spacers from the ten best.
-    for_spacers = random.choices(
-        hg.get_all_spacer_combos(incomplete_forward_primer._binding_seq)[
-        0:n + 2],
-        k=n)
-    rev_spacers = random.choices(
-        hg.get_all_spacer_combos(incomplete_reverse_primer._binding_seq)[
-        0:n + 2],
-        k=n)
+    def get_sets(self) -> List[PrimerSet]:
+        """Returns a *newly generated* list of primer sets. Raises an error if
+        the sets have been fetched before."""
+        if not self._fresh_sets:
+            raise AttributeError("Same set has been retreived more than once.")
+        return self._set_list
 
-    for set_num in range(n):
+    def get_csv_header(self) -> str:
+        """Returns a csv header compatible with any CSVs output by this
+        funciton."""
+        return 'rigour, ' + SortForPairwise.get_csv_formatting_str() + '\n'
 
-        # Select random spacer from the ten best
-        for_spacer = for_spacers[set_num]
-        rev_spacer = rev_spacers[set_num]
+    def get_csv_strs(self) -> str:
+        """Returns a string representation of the csv strings accumulated since
+        the last call to this method."""
+        rtrn = self._csv_str
+        self._csv_str = ''
+        return rtrn
 
-        hg.set_pairwise()
-        hg.set_rigour(rigour)
+    def gen_n_primer_sets(self, for_adapter: Seq, rev_adapter: Seq,
+                          for_binding: Seq, rev_binding: Seq, n: int,
+                          rigour: int, verbose: bool = V) -> None:
+        """Returns a list of <n> sets of primers, generated using the given
+        components, with <rigour>. Seperates each set with <sep>. Will print
+        additional information to console iff <V>. Will format data in fasta format
+        iff fasta. Will shift the index of the printed primer by <ind> * <n> bases.
+        === Parameters ===
+        for_adapter: 5' - 3'
+            The forward adapter sequenced used to generate the primer sets.
+        rev_adapter: 5' - 3'
+            The reverse adapter sequenced used to generate the primer sets.
+        for_binding: 5' - 3'
+            The forward binding sequenced used to generate the primer sets.
+        rev_binding: 5' - 3'
+            The reverse binding sequenced used to generate the primer sets.
+        n:
+            The number of primer sets to generate. Each set uses a different spacer
+            combo by default.
+        rigour:
+            The rigour with which to generate the files.
+        """
 
-        number_to_return = 1
+        hg = HeteroGen(rigour=rigour, presenter=ConsolePresenter(),
+                       num_hetero=NUM_HETERO,
+                       max_spacer_length=MAX_SPACER_LENGTH)
+        rg = hg.get_primer_gen()
+        sf = rg.get_spacer_sorter()
 
-        if V:
-            print(for_spacer)
-            print(rev_spacer)
-            print("Generating primers. This may take some time...")
+        self._set_list = []
 
-        # Generate the sets.
-        t0 = time()
-        psets = hg.get_hetero_seqs(incomplete_forward_primer,
-                                   incomplete_reverse_primer,
-                                   for_spacer, rev_spacer, number_to_return)
-        runtime = time() - t0
+        incomplete_forward_primer = MBPrimerBuilder(adapter_seq=for_adapter,
+                                                    binding_seq=for_binding)
+        incomplete_reverse_primer = MBPrimerBuilder(adapter_seq=rev_adapter,
+                                                    binding_seq=rev_binding)
 
-        if V:
-            print("Completed set #{num:d} in {time:.2f} seconds."
-                  .format(time=runtime, num=set_num + n * ind, ))
-        set_list.extend(psets)
+        # Choose n random spacers from the ten best.
+        for_spacers = hg.get_all_spacer_combos(
+            incomplete_forward_primer._binding_seq)
+        rev_spacers = hg.get_all_spacer_combos(
+            incomplete_reverse_primer._binding_seq)
 
+        # Select best spacers
+        for_spacer = for_spacers[0]
+        rev_spacer = rev_spacers[0]
+
+        for set_num in range(n):
+
+            number_to_return = 1
+
+            if verbose:
+                print(for_spacer)
+                print(rev_spacer)
+                print("Generating primer set", str(set_num + 1), 'of', str(n),
+                      "@rigour", str(rigour) + '.')
+
+            # Generate the sets.
+            t0 = time()
+            psets = hg.get_hetero_seqs(incomplete_forward_primer,
+                                       incomplete_reverse_primer,
+                                       for_spacer, rev_spacer, number_to_return)
+            runtime = time() - t0
+
+            if verbose:
+                print("Completed set #{num:d} at rigour {rig:d} in {time:.2f}"
+                      " seconds.".format(time=runtime, num=set_num + 1,
+                                         rig=rigour))
+
+            self._set_list.extend(psets)
+            self._fresh_sets = True
+            # Append to growing csv string. Convert tup to str. Add rigour to str.
+            self._csv_str += str(rigour) + ', ' + str(sf.get_csv())[1:-1] + '\n'
+
+
+def primer_sets_to_str(primer_sets: List[PrimerSet], fasta: bool, ind: int,
+                       sep: str) -> str:
+    """Coverts the given PrimerSets into a string formatted as a fasta iff fasta
+    else plaintext. Uses <ind> * len(primer_sets) as the starting index for the
+    primer names. Divides each set of primers by <sep>."""
     primer_str = ''
-    for set in enumerate(set_list):
+    for i, p_set in enumerate(primer_sets):
         if fasta:
-            primer_str += set[1].get_fasta_seqs(set[0] + ind * n)
+            primer_str += p_set.get_fasta_seqs(i + ind * len(primer_sets))
         else:
-            primer_str += set[1].get_plain_seqs()
+            primer_str += p_set.get_plain_seqs()
         primer_str += sep
 
-    return (primer_str)
+    return primer_str
 
 
-def get_primer_sets(gen_set: GenSet, n: int, rigour: int = RIGOUR,
-                    filepath: Path = OUT_FILE,
-                    sep: str = '\n', V: bool = VERBOSE, fasta: bool = DO_FASTA,
-                    multi_file=MULTI_FILE,
-                    filename: str = "Primer Set") -> None:
+T = TypeVar('T')
+
+
+def make_iter(obj: T) -> Union[T, Tuple[T]]:
+    """Makes the object iterable if it is not already."""
+    try:
+        iter(obj)
+        return obj
+    except TypeError:
+        return [obj]
+
+
+def output_primer_sets(gen_set: GenSet, n: int,
+                       rigour: Union[int, List[int]] = RIGOUR,
+                       filepath: Path = OUT_FILE,
+                       sep: str = '\n', verbose: bool = VERBOSE,
+                       fasta: bool = DO_FASTA,
+                       multi_file=MULTI_FILE,
+                       filename: str = "Primer Set") -> None:
     """Runs gen_n_primers for each of the given binding sequences with the given
      parameters. Stores the output in text files in <filepath>. Will place
      all sets into a single file iff multi_file, othwise will create output file
      for each pair of forward and reverse primers."""
-    if not gen_set.useable():
-        raise ValueError("Gen set is unusable. Make sure it is properly "
-                         "instantiated.")
+    p_gen = PrimerGen()
 
-    for_adapters, rev_adapters, for_bindings, rev_bindings = gen_set.unpack()
-    out_str = ''
-    for i in range(min(len(for_bindings), len(rev_bindings))):
-        for_binding = for_bindings[i]
-        rev_binding = rev_bindings[i]
-        for_adapter = rev_adapters[i]
-        rev_adapter = for_adapters[i]
+    if verbose:
+        print("Generating sets for", filename, "along rigours:",
+              str(rigour)[1:-1])
 
-        if not multi_file:
-            ind = i
+    rigour = make_iter(rigour)
+    if fasta:
+        ft = '.fst'
+    else:
+        ft = '.txt'
 
-        # Get some primer sets as a string.
-        s = get_n_primer_sets(for_adapter, rev_adapter, for_binding,
-                              rev_binding, n, rigour, sep, V, fasta, ind=i)
-        if fasta:
-            txt_path = filepath / "{filename}@set{num:d}.fst".format(
-                filename=filename,
-                num=i + 1)
-        else:
-            txt_path = filepath / "{filename}@set{num:d}.txt".format(
-                filename=filename,
-                num=i + 1)
-        # Store string in file.
-        if multi_file and GEN_OUTPUT:
+    for rig in rigour:
+        for_adapters, rev_adapters, for_bindings, rev_bindings = gen_set.unpack()
+        out_str = ''
+        ind = 0
+        for i in range(min(len(for_bindings), len(rev_bindings))):
+            for_binding = for_bindings[i]
+            rev_binding = rev_bindings[i]
+            for_adapter = rev_adapters[i]
+            rev_adapter = for_adapters[i]
+
+            if not multi_file:
+                ind = i
+
+            # Get some primer sets as a string.
+            p_gen.gen_n_primer_sets(for_adapter, rev_adapter, for_binding,
+                                    rev_binding, n, rig)
+            sets = p_gen.get_sets()
+            s = primer_sets_to_str(sets, fasta, ind, sep)
+            txt_path = filepath / "{filename}@set{num:d}@rig{r}{ft}".format(
+                filename=filename, num=i + 1, r=rig, ft=ft)
+            # Store string in file.
+            if multi_file and GEN_OUTPUT:
+                with open(txt_path, "w") as my_file:
+                    my_file.write(s)
+            else:
+                out_str += s
+
+        if not multi_file and GEN_OUTPUT:
+            txt_path = filepath / "{filename}@rig{r}{ft}".format(
+                filename=filename, r=rig, ft=ft)
+
+            if verbose:
+                print(filename + " complete")
             with open(txt_path, "w") as my_file:
-                my_file.write(s)
-        else:
-            out_str += s
+                my_file.write(out_str)
 
-    if not multi_file and GEN_OUTPUT:
-        if fasta:
-            txt_path = filepath / (filename + ".fst")
-        else:
-            txt_path = filepath / (filename + ".txt")
-        if V:
-            print(filename + " complete")
-        with open(txt_path, "w") as my_file:
-            my_file.write(out_str)
+    if CSV:
+        csv_path = filepath / (filename + ' scores.csv')
+        with open(csv_path, "w") as my_file:
+            my_file.write(p_gen.get_csv_header())
+            my_file.write(p_gen.get_csv_strs())
 
 
 if __name__ == '__main__':

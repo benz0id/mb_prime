@@ -3,13 +3,13 @@ from abc import abstractmethod
 from typing import Dict, List
 
 from hetero_spacer_generator.defaults import INITIAL_PRIMER_SET_SIZE, \
-    NUM_PAIRINGS_TO_COMP, NUM_HETERO, NUM_SPACERS
+    NUM_PAIRINGS_TO_COMP, NUM_HETERO, NUM_SPACERS, RIGOUR
 from hetero_spacer_generator.get_random_seqs import gen_hetero_set
 from hetero_spacer_generator.spacer_generator.spacer_filters import \
     SortForPairwise, SortForSimultaneous, SpacerAlignment, SpacerSet, \
     SpacerSorter
 from hetero_spacer_generator.primer_tools import HeteroSeqTool, \
-    MBPrimerBuilder, PrimerSet
+    MBPrimerBuilder, MaxInt, PrimerSet
 
 
 class HeteroSpacerGen(HeteroSeqTool):
@@ -55,16 +55,19 @@ class RandomSpacerGen(HeteroSpacerGen):
     """
     _random_per_align: int
     _num_pairings_to_compare: int
-    _spacer_sorter: SpacerSorter
+    _spacer_sorter: SortForPairwise
     _rigour: int
 
     def __init__(self, max_spacer_length: int, num_hetero: int,
-                 rigour: int = 1) -> None:
+                 rigour: int = RIGOUR) -> None:
         """Initialises helper classes and attributes."""
         super().__init__(max_spacer_length, num_hetero)
-        self._spacer_sorter = SortForSimultaneous(max_spacer_length,
-                                                  num_hetero)
+        self._spacer_sorter = SortForPairwise(max_spacer_length, num_hetero)
         self.set_rigour(rigour)
+
+    def get_spacer_sorter(self) -> SortForPairwise:
+        """Returns this random spacer generator's spacer sorter."""
+        return self._spacer_sorter
 
     def get_random_hetero_seqs(self, incomplete_forward_primer: MBPrimerBuilder,
                                incomplete_reverse_primer: MBPrimerBuilder,
@@ -74,28 +77,21 @@ class RandomSpacerGen(HeteroSpacerGen):
         """Generates <num_to_return> PrimerSets, without minimising
         complementarity between the heterogeneity regions in the primers and
         that of other sequences."""
-        forward_spacer_seqs = gen_hetero_set(incomplete_forward_primer,
-                                             forward_spacer,
-                                             self._random_per_align)
-        reverse_spacer_seqs = gen_hetero_set(incomplete_reverse_primer,
-                                             reverse_spacer,
-                                             self._random_per_align)
 
-        # Choose some number of random spacer sequences.
+        # Set sample sizes to 1.
+        self._spacer_sorter.set_num_pairings_to_compare(1)
+        self._random_per_align = 1
         primer_sets = []
-        for i in range(num_to_return):
-            forward_primers = []
-            for seq in forward_spacer_seqs[i]:
-                incomplete_forward_primer.set_heterogen_seq(seq)
-                f_primer = incomplete_forward_primer.get_mbprimer()
-                forward_primers.append(f_primer)
-            reverse_primers = []
-            for seq in reverse_spacer_seqs[i]:
-                incomplete_reverse_primer.set_heterogen_seq(seq)
-                r_primer = incomplete_reverse_primer.get_mbprimer()
-                reverse_primers.append(r_primer)
 
-            primer_sets.append(PrimerSet(forward_primers, reverse_primers))
+        for _ in range(num_to_return):
+            rand_set = self.get_hetero_seqs(incomplete_forward_primer,
+                                            incomplete_reverse_primer,
+                                            forward_spacer,
+                                            reverse_spacer, 1)[0]
+            primer_sets.append(rand_set)
+
+        # Reset rigour to desired value.
+        self.set_rigour(self._rigour)
 
         return primer_sets
 
@@ -127,28 +123,36 @@ class RandomSpacerGen(HeteroSpacerGen):
     def set_pairwise(self, degen: bool = None) -> None:
         """Sets the primer types to be returned to pairwise primers"""
         self._spacer_sorter = SortForPairwise(self._max_spacer_length,
-        self._num_hetero, num_pairings_to_comp=self._num_pairings_to_compare,
+                                              self._num_hetero,
+                                              num_pairings_to_comp=self._num_pairings_to_compare,
                                               degen=degen)
 
     def set_rigour(self, rigour: int) -> None:
         """Increases the sample sizes of the random generation process
         according to <rigour>. """
         self._rigour = rigour
-        if rigour > 0:
+
+        # Rigour is negative infinity, set to be practically random.
+        if isinstance(rigour, MaxInt):
+            if rigour < -10000:
+                self._random_per_align = 1
+                self._num_pairings_to_compare = 1
+                self._spacer_sorter.set_num_pairings_to_compare(1)
+        elif rigour > 0:
             rigour += 1
             self._random_per_align = INITIAL_PRIMER_SET_SIZE * rigour
             # Square root to slow rate of growth.
             self._num_pairings_to_compare = int(NUM_PAIRINGS_TO_COMP *
-                                             rigour ** (1/3))
+                                                rigour ** (1 / 3))
             self._spacer_sorter.set_num_pairings_to_compare(
-                NUM_PAIRINGS_TO_COMP * rigour)
+                self._num_pairings_to_compare)
         elif rigour < 0:
             rigour -= 1
             self._random_per_align = int(INITIAL_PRIMER_SET_SIZE /
                                          -rigour)
             # Square root to slow rate of growth.
             self._num_pairings_to_compare = int(NUM_PAIRINGS_TO_COMP /
-                                             (-rigour) ** (1/3))
+                                                (-rigour) ** (1 / 3))
             self._spacer_sorter.set_num_pairings_to_compare(
                 self._num_pairings_to_compare)
         elif rigour == 0:
@@ -157,4 +161,3 @@ class RandomSpacerGen(HeteroSpacerGen):
             self._num_pairings_to_compare = NUM_PAIRINGS_TO_COMP
             self._spacer_sorter.set_num_pairings_to_compare(
                 self._num_pairings_to_compare)
-

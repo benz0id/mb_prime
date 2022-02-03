@@ -1,26 +1,71 @@
 import random
 
 from Bio.Seq import Seq
-
+import pytest
 import fixtures_and_helpers as fah
-from hetero_spacer_generator.primer_tools import EvalMBPrimer, MBPrimer, \
-    MBPrimerBuilder
+from hetero_spacer_generator.primer_tools import MBPrimer, \
+    MBPrimerBuilder, PairwisePrimerSet
+from hetero_spacer_generator.spacer_generator.criteria import EvalMBPrimer
 from hetero_spacer_generator.sequence_tools import SeqAnalyzer
-from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import HeteroGen
+from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import \
+    HeteroGen, SpacerAlignmentGen
 from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
     gen_hetero_set
 from hetero_spacer_generator.spacer_generator.spacer_filters import \
-    SortForPairwise
+    SortForPairwise, SpacerAlignment
+from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
+    RandomSpacerGen
 
+from meta_tools.template_sequences import *
 
 class TestPairwiseSorter:
     sfm = fah.SeqFixtureManager()
     sfm.num_to_generate = fah.MED_SAMPLE_SIZE
     sfm.do_all()
 
-    pass
 
-DEF_RIGOUR = -5
+DEF_RIGOUR = -20
+
+@pytest.mark.parametrize('gen_set',
+                         [
+                             (STANDARD_SET),
+                             (RANDOM_RHO_SET),
+                             (SMALL_BINDING_SET),
+                             (OPTIMAL_SET)
+                         ], scope='class')
+def test_increased_performace_rand_seq_sel(gen_set) -> None:
+    """Tests that primers produced by the full filtering process
+    consistently from less dimers than randomly generated primers of the
+    same variety. Does not vary the heterogeneity combo used - will allways
+    use the best available one."""
+    num_to_test = 10
+    f_bind, r_bind, f_adapt, r_adapt = gen_set.unpack()
+
+    f_incomp = MBPrimerBuilder(binding_seq=f_bind[0],
+                               adapter_seq=f_adapt[0])
+    r_incomp = MBPrimerBuilder(binding_seq=r_bind[0],
+                               adapter_seq=r_adapt[0])
+
+    # Default length, something else otherwise.
+    heterogeneity_region_size = min(12, min(len(f_bind[0]) - 1,
+                                            len(r_bind[0])) - 1)
+    rsg = RandomSpacerGen(heterogeneity_region_size,
+                          heterogeneity_region_size, rigour=DEF_RIGOUR)
+    sag = SpacerAlignmentGen(heterogeneity_region_size,
+                             heterogeneity_region_size)
+    f_spacer = sag.get_all_spacer_combos(f_bind[0])[0]
+    r_spacer = sag.get_all_spacer_combos(r_bind[0])[0]
+    for i in range(num_to_test):
+        rand = rsg.get_random_hetero_seqs(f_incomp, r_incomp, f_spacer,
+                                          r_spacer, 1)[0]
+        filtered = rsg.get_hetero_seqs(f_incomp, r_incomp, f_spacer,
+                                       r_spacer, 1)[0]
+
+        rand_score = rand.get_score()
+        filtered_score = filtered.get_score()
+        # The score is proportional to the most stable heterodimer.
+        # Higher => Worse
+        assert rand_score > filtered_score
 
 class TestSeqAnalyser:
 
@@ -113,12 +158,14 @@ class TestSeqAnalyser:
         seq1 = Seq('CTAGTACAAGTGAGCTGTATA')  # 5' - 3'
         # Matching  ^^^^^5           ^^^^4
 
+        assert seqa.comp_seqs_any_overlap(seq1, seq2,
+                                          seqa.get_consec_complementarity, 5,
+                                          0) == 4
 
         assert seqa.comp_seqs_any_overlap(seq1, seq2,
-                                seqa.get_consec_complementarity, 5, 0) == 4
+                                          seqa.get_consec_complementarity, 0,
+                                          5) == 5
 
-        assert seqa.comp_seqs_any_overlap(seq1, seq2,
-                                seqa.get_consec_complementarity, 0, 5) == 5
 
 # Primer regions with predetermined binding for testing
 ads = Seq("TAGAGAGAGAATG")
@@ -149,6 +196,7 @@ bin = "AAAAAAGCGC"
 
 b4 = MBPrimer(ads, ids, hgs, bin)
 
+
 class TestEvalMBPrimer:
     """Test suite for EvalMBPrimer class"""
     emp = EvalMBPrimer(12, 12)
@@ -163,8 +211,6 @@ class TestEvalMBPrimer:
     def test_eval_hetero_hetero_spacer_binding(self) -> None:
         assert self.emp.eval_homo_hetero_spacer_binding_consec(b3) == 8
         assert self.emp.eval_homo_hetero_spacer_binding_consec(b4) == 1
-
-
 
 
 for_adapter_seq = 'ACACTCTTTCCCTACACGACGCTCTTCCGATCT'
@@ -190,10 +236,7 @@ incomp_reverse_primer.set_adapter_seq(rev_adapter_seq)
 class TestSortForPairWise:
 
     def test_single_primer_sorting(self) -> None:
-        hg = HeteroGen(hetero_size, spacer_size)
-        ss = SortForPairwise(12, 12, degen=False)
-        hg._primer_gen._spacer_sorter = ss
-        hg.set_rigour(DEF_RIGOUR)
+        hg = HeteroGen(hetero_size, spacer_size, rigour=DEF_RIGOUR)
         for_spacers = hg.get_all_spacer_combos(incomp_forward_primer
                                                .get_binding_seq())
         rev_spacers = hg.get_all_spacer_combos(incomp_reverse_primer
@@ -204,6 +247,7 @@ class TestSortForPairWise:
         reverse_spacer_seqs = gen_hetero_set(incomp_reverse_primer,
                                              rev_spacers[0],
                                              fah.LARGE_SAMPLE_SIZE)
+        ss = SortForPairwise(hetero_size, spacer_size, 10, False)
         ss._build_full(12, 12, incomp_forward_primer, incomp_reverse_primer,
                        forward_spacer_seqs, reverse_spacer_seqs)
         ss._evaluate_scores_single()
@@ -213,8 +257,6 @@ class TestSortForPairWise:
 
     def test_primer_set_sorting(self) -> None:
         pass
-
-
 
     def test_full_primer_creation_process(self):
         for_adapter_seq = 'ACACTCTTTCCCTACACGACGCTCTTCCGATCT'
@@ -235,9 +277,7 @@ class TestSortForPairWise:
         incomp_reverse_primer.set_binding_seq(rev_binding_seq)
         incomp_reverse_primer.set_index_seq(rev_indexing_seq)
         incomp_reverse_primer.set_adapter_seq(rev_adapter_seq)
-        hg = HeteroGen(hetero_size, spacer_size)
-        hg.set_pairwise(degen=False)
-        hg.set_rigour(DEF_RIGOUR)
+        hg = HeteroGen(hetero_size, spacer_size, rigour=DEF_RIGOUR)
         for_spacers = hg.get_all_spacer_combos(incomp_forward_primer
                                                .get_binding_seq())
         rev_spacers = hg.get_all_spacer_combos(incomp_reverse_primer
@@ -249,6 +289,10 @@ class TestSortForPairWise:
                                      rev_spacers[1],
                                      5)
         assert len(primers) == 5
+        for primer_set in primers:
+            assert isinstance(primer_set, PairwisePrimerSet)
+
+
 
 
 

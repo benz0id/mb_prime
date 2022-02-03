@@ -1,5 +1,5 @@
 
-from typing import List, Dict, Callable
+from typing import List, Dict, Callable, Union
 from Bio.Seq import Seq
 from hetero_spacer_generator.primer_tools import HeteroSeqTool, co_sort
 from hetero_spacer_generator.sequence_tools import compare_bases_can_ignore, \
@@ -11,7 +11,7 @@ from hetero_spacer_generator.spacer_generator.spacer_filters import \
 from presenters import Presenter, ConsolePresenter
 from hetero_spacer_generator.defaults import GET_UNIQUE_SPACER_OFFSETS_DEFAULT, \
     NUM_SPACERS, MAX_SPACER_LENGTH, NUM_HETERO, \
-    GET_SMALLEST_TOTAL_LEN_DEFAULT, GET_SMALLEST_OF_ANY_SPACER_DEFAULT
+    GET_SMALLEST_TOTAL_LEN_DEFAULT, GET_SMALLEST_OF_ANY_SPACER_DEFAULT, RIGOUR
 
 
 # Begin methods for sorting spacer alignments
@@ -89,7 +89,7 @@ class SpacerAlignmentGen(HeteroSeqTool):
         self._num_hetero = num_hetero
         self._build_criteria()
 
-    def get_all_spacer_combos(self, seq: Seq) \
+    def get_all_spacer_combos(self, seq: Union[Seq, str]) \
             -> List[SpacerAlignment]:
         """Given a <seq>, will provide a set of alignments of that sequence (
         produced by shifting it to the right) that ensures nucleotide
@@ -97,7 +97,8 @@ class SpacerAlignmentGen(HeteroSeqTool):
         tuples, each of which contain unique combinations of valid heterogeneity
         spacer lengths. Spacer tuples are ordered from smallest spacer to
         greatest."""
-
+        if not isinstance(seq, Seq):
+            seq = Seq(seq)
         valid_spacer_combos = []
         spacers = []
         seq = remove_degen(seq)
@@ -227,7 +228,7 @@ class HeteroGen:
     _primer_gen: RandomSpacerGen
 
     def __init__(self, max_spacer_length: int = MAX_SPACER_LENGTH,
-                 num_hetero: int = NUM_HETERO,
+                 num_hetero: int = NUM_HETERO, rigour: int = RIGOUR,
                  presenter: Presenter = ConsolePresenter()) -> None:
         """Initialises the attributes to the values specified."""
         self._presenter = presenter
@@ -235,7 +236,8 @@ class HeteroGen:
         self._num_hetero = num_hetero
         self._alignment_gen = SpacerAlignmentGen(max_spacer_length, num_hetero,
                                                  presenter)
-        self._primer_gen = RandomSpacerGen(max_spacer_length, num_hetero)
+        self._primer_gen = RandomSpacerGen(max_spacer_length, num_hetero,
+                                           rigour=rigour)
 
     def set_params(self, max_spacer_length: int, num_hetero: int) -> None:
         """Sets the construction parameters to the given values."""
@@ -243,6 +245,10 @@ class HeteroGen:
         self._max_spacer_length = max_spacer_length
         self._primer_gen.set_params(max_spacer_length, num_hetero)
         self._alignment_gen.set_params(max_spacer_length, num_hetero)
+
+    def get_primer_gen(self) -> RandomSpacerGen:
+        """Returns this HeteroSpacerGen's primer gen"""
+        return self._primer_gen
 
     def set_rigour(self, rigour: int) -> None:
         """Sets the rigour to the specified value."""
