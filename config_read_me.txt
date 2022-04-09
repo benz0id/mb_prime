@@ -4,7 +4,7 @@
 # stage of the primer design process for metabarcoding. Each of these has a
 # detailed description of its purpose and usage instructions provided below.
 #
-#
+# Written for python 3.10
 #
 # Author: Ben Tudor Price
 # Email: benjamin.tudorprice@mail.utoronto.ca
@@ -17,6 +17,14 @@
 # some value in order to run. Values that must be stated are marked with a *. Any
 # line that begins with a "#" will be ignored during parsing, so you are free
 # to delete and add them as you wish.
+#
+#
+# To install the required packages, run the following on linux.
+# > pip install pipreqs
+# > pipreqs .
+# > pip install -r requirements.txt
+
+
 
 
 # === Primer Structure Overview ===
