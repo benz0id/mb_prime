@@ -21,7 +21,6 @@
 #
 # To install the required packages, run the following on linux.
 # > pip install pipreqs
-# > pipreqs .
 # > pip install -r requirements.txt
 
 

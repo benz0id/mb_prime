@@ -1,6 +1,6 @@
 
 
 class PrimerSetResults:
-
+    pass
 
 

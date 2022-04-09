@@ -3,7 +3,7 @@ from multiprocessing.managers import DictProxy
 from statistics import stdev
 from multiprocessing import Process, Manager
 import hetero_spacer_generator.spacer_generator.hetero_spacer_generator as hsg
-from tests.fixtures_and_helpers import gen_random_seq
+from test_files.fixtures_and_helpers import gen_random_seq
 from math import factorial
 from typing import Tuple, List, Dict, Union
 from time import time
