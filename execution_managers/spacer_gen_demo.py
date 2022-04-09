@@ -1,12 +1,10 @@
 from hetero_spacer_generator.sequence_tools import is_degen
-from presenters import ConsolePresenter
-import demo_tools
+from execution_managers import demo_tools
 from time import time
 
 
 
-PRESENTER = ConsolePresenter()
-hg = demo_tools.HeteroGen(presenter=PRESENTER)
+hg = demo_tools.HeteroGen()
 input("Press enter to start.")
 
 demo_tools.ACCEPT_DEGEN = True
@@ -14,10 +12,10 @@ demo_tools.ACCEPT_DEGEN = True
 
 incomplete_forward_primer, forward_spacer = demo_tools.get_primer_and_spacers(hg,
                                                                    'forward',
-                                                                   is_one_step=True)
+                                                                              is_one_step=True)
 incomplete_reverse_primer, reverse_spacer = demo_tools.get_primer_and_spacers(hg,
                                                                    'reverse',
-                                                                   is_one_step=True)
+                                                                              is_one_step=True)
 
 while True:
 

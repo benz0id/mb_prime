@@ -61,6 +61,38 @@ def get_primer_and_spacers(hg: HeteroGen, direction: str,
     return incomplete_primer, spacer
 
 
+def get_spacer(hg: HeteroGen, incomplete_primer: MBPrimerBuilder,
+               auto: bool = False) -> Tuple[int, int, int, int]:
+    """Gets a spacer given some primer by showing a menu to the user."""
+    spacers = hg.get_all_spacer_combos(
+        incomplete_primer.get_binding_seq())[0:15]
+
+    if auto:
+        return spacers[0]
+
+    if not spacers:
+        raise ValueError(
+            "Failed to find a way in which to align the given sequences. Try"
+            " setting the max spacer length to a greater value.")
+
+    print("Spacers found. Press enter to select desired spacer combo.\n")
+
+    num_to_spacer = hg.visualise_spacer_alignments(spacers,
+                                                   incomplete_primer.
+                                                   get_binding_seq())
+
+    max_val = max(num_to_spacer.keys())
+
+    spacer_ind = while_not_valid(
+        "Select the sizes of the heterogeneity spacers you'd like to use:",
+        "Invalid input: Ensure the number you've entered "
+        "represents one of the primers displayed.\n "
+        "Enter the number of the primer alignment you'd "
+        "like to use:", RANGE, start=1, end=max_val)
+
+    return num_to_spacer[int(spacer_ind)]
+
+
 def valid_input(input: Union[int, str], mode: str, start: Union[int, str] = 0,
                 end: Union[int, str] = 0,
                 allowed: Union[int, str] = '') -> bool:

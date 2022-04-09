@@ -3,7 +3,7 @@ from abc import abstractmethod
 from typing import Dict, List
 
 from hetero_spacer_generator.defaults import INITIAL_PRIMER_SET_SIZE, \
-    NUM_PAIRINGS_TO_COMP, NUM_HETERO, NUM_SPACERS, RIGOUR
+    NUM_PAIRINGS_TO_COMP, NUM_HETERO, NUM_PROCS, NUM_SPACERS, RIGOUR
 from hetero_spacer_generator.get_random_seqs import gen_hetero_set
 from hetero_spacer_generator.spacer_generator.spacer_filters import \
     SortForPairwise, SortForSimultaneous, SpacerAlignment, SpacerSet, \
@@ -99,7 +99,8 @@ class RandomSpacerGen(HeteroSpacerGen):
                         incomplete_reverse_primer: MBPrimerBuilder,
                         forward_spacer: SpacerAlignment,
                         reverse_spacer: SpacerAlignment,
-                        num_to_return: int) -> List[PrimerSet]:
+                        num_to_return: int, num_procs: int = NUM_PROCS) \
+            -> List[PrimerSet]:
         """Generates <num_to_return> PrimerSets, trying to minimise
         complementarity between the heterogeneity regions in the primers and
         that of other sequences."""
@@ -118,7 +119,7 @@ class RandomSpacerGen(HeteroSpacerGen):
             incomplete_reverse_primer,
             forward_spacer_seqs,
             reverse_spacer_seqs,
-            num_to_return)
+            num_to_return, num_procs=num_procs)
 
     def set_pairwise(self, degen: bool = None) -> None:
         """Sets the primer types to be returned to pairwise primers"""

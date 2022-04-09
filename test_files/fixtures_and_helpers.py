@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Tuple, TypeVar
 import random
 from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import SpacerAlignmentGen
@@ -6,8 +7,16 @@ from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
     RandomSpacerGen
 import hetero_spacer_generator.spacer_generator.random_spacer_generator as rsg
 from Bio.Seq import Seq
-
 from hetero_spacer_generator.spacer_generator.spacer_filters import SpacerSet
+import os
+
+from seq_alignment_analyser.align import MSA
+
+TEST_PATH = Path(os.path.dirname(__file__))
+TEST_OBJECTS_PATH = TEST_PATH / 'test_objects'
+ALIGNMENTS_PATH = TEST_OBJECTS_PATH / 'alignments'
+TEST_OUTPUT_PATH = TEST_PATH / 'test_output'
+READ_MES_PATH = TEST_OBJECTS_PATH / 'read_mes'
 
 LARGE_SAMPLE_SIZE = 100
 MED_SAMPLE_SIZE = 50
@@ -15,6 +24,11 @@ SMALL_SAMPLE_SIZE = 10
 
 SMALL_SEQ_LEN = 2
 
+
+def get_msa(filename: str) -> MSA:
+    """Returns an MSA parsed from the given <filename> in the alignments
+    file."""
+    return MSA(ALIGNMENTS_PATH / (filename + '.fas'))
 
 def ensure_hetero_bases(bases: List[str]) -> bool:
     for i in range(len(bases)):

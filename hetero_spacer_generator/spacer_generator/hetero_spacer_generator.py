@@ -8,7 +8,6 @@ from hetero_spacer_generator.spacer_generator.random_spacer_generator import Ran
 from hetero_spacer_generator.primer_tools import MBPrimerBuilder, PrimerSet
 from hetero_spacer_generator.spacer_generator.spacer_filters import \
     SpacerAlignment
-from presenters import Presenter, ConsolePresenter
 from hetero_spacer_generator.defaults import GET_UNIQUE_SPACER_OFFSETS_DEFAULT, \
     NUM_SPACERS, MAX_SPACER_LENGTH, NUM_HETERO, \
     GET_SMALLEST_TOTAL_LEN_DEFAULT, GET_SMALLEST_OF_ANY_SPACER_DEFAULT, RIGOUR
@@ -60,7 +59,6 @@ class SpacerAlignmentGen(HeteroSeqTool):
 
     _max_spacer_length: int
     _num_hetero: int
-    _presenter: Presenter
     _criteria: List[Callable[[List[SpacerAlignment]], List[int]]]
     _criterion_to_weight: \
         Dict[Callable[[List[SpacerAlignment]], List[int]], int]
@@ -78,13 +76,11 @@ class SpacerAlignmentGen(HeteroSeqTool):
 
         self._criteria = list(self._criterion_to_weight.keys())
 
-    def __init__(self, max_spacer_length: int, num_hetero: int,
-                 presenter: Presenter = ConsolePresenter()) -> None:
+    def __init__(self, max_spacer_length: int, num_hetero: int) -> None:
         """Initialises the attributes to the values specified.
         Precondition:
             max_spacer_length >= num_hetero"""
         super().__init__(max_spacer_length, num_hetero)
-        self._presenter = presenter
         self._max_spacer_length = max_spacer_length
         self._num_hetero = num_hetero
         self._build_criteria()
@@ -223,19 +219,15 @@ class HeteroGen:
             """
     _max_spacer_length: int
     _num_hetero: int
-    _presenter: Presenter
     _alignment_gen: SpacerAlignmentGen
     _primer_gen: RandomSpacerGen
 
     def __init__(self, max_spacer_length: int = MAX_SPACER_LENGTH,
-                 num_hetero: int = NUM_HETERO, rigour: int = RIGOUR,
-                 presenter: Presenter = ConsolePresenter()) -> None:
+                 num_hetero: int = NUM_HETERO, rigour: int = RIGOUR) -> None:
         """Initialises the attributes to the values specified."""
-        self._presenter = presenter
         self._max_spacer_length = max_spacer_length
         self._num_hetero = num_hetero
-        self._alignment_gen = SpacerAlignmentGen(max_spacer_length, num_hetero,
-                                                 presenter)
+        self._alignment_gen = SpacerAlignmentGen(max_spacer_length, num_hetero,)
         self._primer_gen = RandomSpacerGen(max_spacer_length, num_hetero,
                                            rigour=rigour)
 
@@ -319,7 +311,7 @@ class HeteroGen:
 
             to_print += '\n'
 
-        self._presenter.print(to_print)
+        print(to_print)
         return spacer_dict
 
     def visualise_seq_arr(self, seq_arrs: List[List[List[str]]]) -> None:
@@ -351,4 +343,4 @@ class HeteroGen:
 
             to_print += '\n'
 
-        self._presenter.print(to_print)
+        print(to_print)

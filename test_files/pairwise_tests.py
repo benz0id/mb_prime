@@ -24,7 +24,7 @@ class TestPairwiseSorter:
     sfm.do_all()
 
 
-DEF_RIGOUR = -20
+DEF_RIGOUR = -5
 
 @pytest.mark.parametrize('gen_set',
                          [
@@ -38,7 +38,7 @@ def test_increased_performace_rand_seq_sel(gen_set) -> None:
     consistently from less dimers than randomly generated primers of the
     same variety. Does not vary the heterogeneity combo used - will allways
     use the best available one."""
-    num_to_test = 10
+    num_to_test = 1
     f_bind, r_bind, f_adapt, r_adapt = gen_set.unpack()
 
     f_incomp = MBPrimerBuilder(binding_seq=f_bind[0],
@@ -69,6 +69,24 @@ def test_increased_performace_rand_seq_sel(gen_set) -> None:
 
 class TestSeqAnalyser:
 
+    sa = SeqAnalyzer(degen=False)
+
+
+    def test_com_seqs_basic(self) -> None:
+        """Tests that sequence comparison works on basic sequences."""
+        s1 = Seq('AAAAA')
+        s2 = Seq('AAAAA')
+        assert self.sa.comp_seqs_any_overlap(s1, s2, sa.get_consec_complementarity) == 0
+
+        s1 = Seq('AAAAA')
+        s2 = Seq('TTTTT')
+        assert self.sa.comp_seqs_any_overlap(s1, s2, sa.get_consec_complementarity) == 5
+
+        s1 = Seq('AATT')
+        s2 = Seq('AATT')
+        assert self.sa.comp_seqs_any_overlap(s1, s2, sa.get_consec_complementarity) == 4
+
+
     def test_com_seqs_any_overlap_prod_seqs_same_len(self) -> None:
 
         def equal_length(seq1: str, seq2: str) -> int:
@@ -80,7 +98,7 @@ class TestSeqAnalyser:
         for i in range(fah.SMALL_SAMPLE_SIZE):
             seq1 = fah.gen_random_seq(random.randrange(0, fah.SMALL_SEQ_LEN))
             seq2 = fah.gen_random_seq(random.randrange(0, fah.SMALL_SEQ_LEN))
-            seqa.comp_seqs_any_overlap(seq1, seq2, equal_length)
+            seqa.comp_seqs_any_overlap(seq1, seq2[::-1], equal_length)
 
     def test_consec_complementarity(self) -> None:
 
@@ -91,7 +109,7 @@ class TestSeqAnalyser:
         seq2 = Seq('TTGATGAGATCAATGCTGTAG')  # 3' - 5'
         # Matching         ^^^^^
 
-        assert seqa.comp_seqs_any_overlap(seq1, seq2,
+        assert seqa.comp_seqs_any_overlap(seq1, seq2[::-1],
                                           seqa.get_consec_complementarity) == 5
 
     def test_consec_complementarity_ends(self) -> None:
@@ -104,7 +122,7 @@ class TestSeqAnalyser:
         seq2 = Seq('TTGATGAATGCTGTAGGATCA')  # 3' - 5'
         # Matching                  ^^^^^
 
-        assert seqa.comp_seqs_any_overlap(seq1, seq2,
+        assert seqa.comp_seqs_any_overlap(seq1, seq2[::-1],
                                           seqa.get_consec_complementarity) == 5
 
         seq1 = Seq('ACAAGTGAGCTGATCGCTAGT')  # 5' - 3'
@@ -112,7 +130,7 @@ class TestSeqAnalyser:
         seq2 = Seq('GATCATTGATGAATGCTGTAG')  # 3' - 5'
         # Matching  ^^^^^
 
-        assert seqa.comp_seqs_any_overlap(seq1, seq2,
+        assert seqa.comp_seqs_any_overlap(seq1, seq2[::-1],
                                           seqa.get_consec_complementarity) == 5
 
     def test_consec_complementarity_degen(self) -> None:
@@ -124,7 +142,7 @@ class TestSeqAnalyser:
         seq2 = Seq('TTGATGAGANCAATGCTGTNG')  # 3' - 5'
         # Matching         ^^^^^
 
-        assert seqa.comp_seqs_any_overlap(seq1, seq2,
+        assert seqa.comp_seqs_any_overlap(seq1, seq2[::-1],
                                           seqa.get_consec_complementarity) == 5
 
     def test_consec_complementarity_ends_degen(self) -> None:
@@ -137,7 +155,7 @@ class TestSeqAnalyser:
         seq2 = Seq('TTGATGAATGCTGTAGGATCA')  # 3' - 5'
         # Matching                  ^^^^^
 
-        assert seqa.comp_seqs_any_overlap(seq1, seq2,
+        assert seqa.comp_seqs_any_overlap(seq1, seq2[::-1],
                                           seqa.get_consec_complementarity) == 5
 
         seq1 = Seq('ACAAGTGAGCTGATCGCTVGT')  # 5' - 3'
@@ -145,7 +163,7 @@ class TestSeqAnalyser:
         seq2 = Seq('GATCRTTGATGAATGCTGTAG')  # 3' - 5'
         # Matching  ^^^^^
 
-        assert seqa.comp_seqs_any_overlap(seq1, seq2,
+        assert seqa.comp_seqs_any_overlap(seq1, seq2[::-1],
                                           seqa.get_consec_complementarity) == 5
 
     def test_consec_complementarity_ends_with_skip(self) -> None:
@@ -158,11 +176,11 @@ class TestSeqAnalyser:
         seq1 = Seq('CTAGTACAAGTGAGCTGTATA')  # 5' - 3'
         # Matching  ^^^^^5           ^^^^4
 
-        assert seqa.comp_seqs_any_overlap(seq1, seq2,
+        assert seqa.comp_seqs_any_overlap(seq1, seq2[::-1],
                                           seqa.get_consec_complementarity, 5,
                                           0) == 4
 
-        assert seqa.comp_seqs_any_overlap(seq1, seq2,
+        assert seqa.comp_seqs_any_overlap(seq1, seq2[::-1],
                                           seqa.get_consec_complementarity, 0,
                                           5) == 5
 

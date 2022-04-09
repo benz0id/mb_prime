@@ -263,9 +263,8 @@ class SeqAnalyzer:
         <f_skip> is the number of alignments to skip from
 
         Note:
-            For proper binding values, ensure that <seq1> and <seq2> have
-            opposing directionality. Comments assume that <seq1> is 5' - 3' and
-            <seq2> is 3' - 5', but the function will work if this is
+            For proper binding values, ensure that all input sequences are
+            5'-3', but the function will work if this is
             switched."""
 
         self.degen_check([seq1, seq2])
@@ -285,7 +284,8 @@ class SeqAnalyzer:
 
         # Convert to strings
         l_seq = l_seq.__str__()
-        s_seq = s_seq.__str__()
+        # Convert second seq to 3'-5'.
+        s_seq = s_seq.__str__()[::-1]
 
         # Check combinations with full overlap first.
         for shift in range(0, m - n):

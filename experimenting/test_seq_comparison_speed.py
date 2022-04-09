@@ -37,8 +37,8 @@ def base_comparison_times(seq1: Seq, seq2: Seq,
     repetitions."""
     get_consec = sa.get_consec_complementarity
     get_total = sa.get_non_consec_complementarity
-    find_consec = lambda: sa.comp_seqs_any_overlap(seq1, seq2, get_consec)
-    find_total = lambda: sa.comp_seqs_any_overlap(seq1, seq2, get_total)
+    find_consec = lambda: sa.comp_seqs_any_overlap(seq1, seq2[::-1], get_consec)
+    find_total = lambda: sa.comp_seqs_any_overlap(seq1, seq2[::-1], get_total)
     consec_time = timeit.timeit(find_consec, number=num_reps) / num_reps
     total_time = timeit.timeit(find_total, number=num_reps) / num_reps
     return consec_time, total_time

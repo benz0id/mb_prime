@@ -4,10 +4,12 @@ from pathlib import Path
 # === Misc ===
 
 # Verbosity
-V = True
+from execution_managers.parameter_manager import get_pm
+
+V = False
 
 # Processes to spawn.
-NUM_PROCS = os.cpu_count()
+NUM_PROCS = 1
 
 # Print runtime of methods.
 TIMING = True
@@ -29,13 +31,46 @@ ABSOLUTE_MAX_SPACER_LENGTH = 50
 NUM_HETERO = 12
 ABSOLUTE_MAX_NUM_HETERO = 50
 RIGOUR = 0
-
+# === Alignment Analyser Defaults ===
+# Minimum complementarity at binding site in alignment.
+MIN_COMP = 85
+# Defualt window size when generating sliding window charts.
+WINDOW_SIZE = 10
+# The number of primers to keep during execution.
+NUM_TO_KEEP = 10000
 
 # === Random sampling defaults ===
 # The number of forward and reverse primers to compare against each other.
 NUM_PAIRINGS_TO_COMP = 35
 # The number of primers in the initial sets of potential primers.
 INITIAL_PRIMER_SET_SIZE = 1000
+
+# === Primer evaluation defaults ===
+# Relative importance of consecutive bases in a dimer.
+CONSEC_WEIGHT = 3
+# Relative inmportance of non-consecutive bases in a dimer.
+TOTAL_WEIGHT = 1
+
+
+# === Alignment analysis gen ===
+# Increasing the below factors changes the importance exponentially.
+# Relative importance of binding potential when evaluating a set of binding
+# sequences.
+DIMER_WEIGHT = 1
+# Relative importance of conservation across selected region.
+CONS_WEIGHT = 2
+# If we have them, use user define attributes.
+try:
+    pm = get_pm()
+    cw = pm.get('CONSERVATION_WEIGHT')
+    dw = pm.get('DIMER_WEIGHT')
+except ValueError:
+    print('bollocks')
+    dw = DIMER_WEIGHT
+    cw = CONS_WEIGHT
+
+DIMER_WEIGHT = dw
+CONS_WEIGHT = cw
 
 # === SpacerAlignmentGen Specific defaults ===
 # Begin default criteria weighting.
@@ -69,4 +104,7 @@ DEGEN_TO_POSSIBLE = {
     # Custom: To be ignored.
     "I": ""
 }
+
+
+BASES = ['A', 'T', 'C', 'G']
 

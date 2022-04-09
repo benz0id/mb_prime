@@ -18,7 +18,7 @@ def test_create_empty_output_files() -> None:
     assert filenames == ['rig1@set1.txt', 'rig1@set2.txt',
                          'rig2@set1.txt', 'rig2@set2.txt']
 
-# Tests the get_complex_params_files fixture, and in doing so tests that
+# Tests the get_complex_params_files fixture, and in doing so test_files that
 # create_empty_output_files can return complicated filenames.
 def test_generate_complex_files() -> None:
     file_names = get_complex_params_files()[1]

@@ -134,4 +134,4 @@ class TestSortForSimultaneous:
 
 
 if __name__ == '__main__':
-    pytest.main(['tests/simultaneous_tests.py', '-v'])
+    pytest.main(['test_files/simultaneous_tests.py', '-v'])

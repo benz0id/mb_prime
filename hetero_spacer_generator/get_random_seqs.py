@@ -91,7 +91,7 @@ def gen_hetero_set(incomplete_primer: MBPrimerBuilder,
 
 def visualise_complete_primers(primer_sets: List[PrimerSet]) \
         -> Dict[int, PrimerSet]:
-    """Prints all of <primers> to the presenter. Returns a dict mapping the
+    """Prints all of <primers> to the presenter. Returns a dic mapping the
     value corresponding to each primer printed to that primer."""
     to_print = ''
     p_set_dict = {}

@@ -1,6 +1,7 @@
+import os
+
 from hetero_spacer_generator.spacer_generator.spacer_filters import \
     SortForPairwise
-from presenters import ConsolePresenter
 from time import time
 from hetero_spacer_generator.primer_tools import MBPrimerBuilder, MaxInt, \
     PrimerSet
@@ -9,7 +10,7 @@ import random
 from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import \
     HeteroGen
 from pathlib import Path
-from template_sequences import *
+from meta_tools.template_sequences import *
 from hetero_spacer_generator.defaults import V
 
 DESKTOP = Path('C:\\Users\\bfern\\OneDrive - University of Toronto\\Desktop')
@@ -21,7 +22,7 @@ NUM_SETS = 1
 # Output file for primers.
 OUT_FILE = DESKTOP / "Demo\\Output Primers"
 # Print additional information
-VERBOSE = V
+VERBOSE = True
 # Format the output in fasta format. Required for TF analysis.
 DO_FASTA = True
 # Starting adapters and binding sequences. See available in
@@ -34,6 +35,10 @@ MULTI_FILE = False
 # Whether you'd like to have a csv file containing the generated scores returned
 # A CSV will be created for each call to output_primer_sets
 CSV = True
+# The number of processes to use
+NUM_PROCS = os.cpu_count()
+# Whether the heterogeneity spacings used should be variable.
+VARY_SPACERS = False
 
 # Size of heterogeneity region
 NUM_HETERO = 12
@@ -46,15 +51,28 @@ MAX_SPACER_LENGTH = 12
 
 # Put whatever you'd like to do in here.
 def main():
-    num_to_gen = 10
-    rig_range = [MaxInt(False)]
-    rig_range.extend(list(range(-20, 7, 2)))
-    for gen_set in ALEX_SETS:
-        filep = DESKTOP / 'Alex Sets' / gen_set.name
-        safe_make(filep)
-        run_name = gen_set.name
-        output_primer_sets(gen_set, n=num_to_gen, rigour=rig_range,
-                           filepath=filep, filename=run_name)
+    rand = MaxInt(False)
+    rand_rep = 1000
+    high = 5
+    high_rep = 1
+    gen_set = MITOFISH
+
+    # Don't need multiprocessing here.
+    global NUM_PROCS
+    NUM_PROCS = 1
+
+    filep = DESKTOP / 'Alex Sets' / (gen_set.name + " Random")
+    safe_make(filep)
+    run_name = gen_set.name
+    #output_primer_sets(gen_set, n=rand_rep, rigour=rand,
+    #                       filepath=filep, filename=run_name)
+    NUM_PROCS = os.cpu_count()
+
+    filep = DESKTOP / 'Alex Sets' / (gen_set.name + " High Rigour 3")
+    safe_make(filep)
+    run_name = gen_set.name
+    output_primer_sets(gen_set, n=high_rep, rigour=-3,
+                       filepath=filep, filename=run_name)
 
 
 def safe_make(path: Path) -> None:
@@ -120,7 +138,7 @@ class PrimerGen:
             The rigour with which to generate the files.
         """
 
-        hg = HeteroGen(rigour=rigour, presenter=ConsolePresenter(),
+        hg = HeteroGen(rigour=rigour,
                        num_hetero=NUM_HETERO,
                        max_spacer_length=MAX_SPACER_LENGTH)
         rg = hg.get_primer_gen()
@@ -145,6 +163,10 @@ class PrimerGen:
 
         for set_num in range(n):
 
+            if VARY_SPACERS:
+                for_spacer = random.choice(for_spacers[0:4])
+                rev_spacer = random.choice(rev_spacers[0:4])
+
             number_to_return = 1
 
             if verbose:
@@ -155,9 +177,10 @@ class PrimerGen:
 
             # Generate the sets.
             t0 = time()
-            psets = hg.get_hetero_seqs(incomplete_forward_primer,
+            psets = rg.get_hetero_seqs(incomplete_forward_primer,
                                        incomplete_reverse_primer,
-                                       for_spacer, rev_spacer, number_to_return)
+                                       for_spacer, rev_spacer, number_to_return,
+                                       NUM_PROCS)
             runtime = time() - t0
 
             if verbose:
@@ -179,7 +202,7 @@ def primer_sets_to_str(primer_sets: List[PrimerSet], fasta: bool, ind: int,
     primer_str = ''
     for i, p_set in enumerate(primer_sets):
         if fasta:
-            primer_str += p_set.get_fasta_seqs(i + ind * len(primer_sets))
+            primer_str += p_set.get_fasta_seqs(i + 1 + ind * len(primer_sets))
         else:
             primer_str += p_set.get_plain_seqs()
         primer_str += sep
@@ -223,7 +246,7 @@ def output_primer_sets(gen_set: GenSet, n: int,
         ft = '.txt'
 
     for rig in rigour:
-        for_adapters, rev_adapters, for_bindings, rev_bindings = gen_set.unpack()
+        for_bindings, rev_bindings, for_adapters, rev_adapters = gen_set.unpack()
         out_str = ''
         ind = 0
         for i in range(min(len(for_bindings), len(rev_bindings))):

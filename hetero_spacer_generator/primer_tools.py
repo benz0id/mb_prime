@@ -1,5 +1,7 @@
 import functools
 from abc import ABC, abstractmethod
+import random
+from statistics import stdev
 from typing import Any, Callable, Collection, Iterator, List, Tuple, \
     Dict, Iterable, Union, TypeVar
 
@@ -450,9 +452,9 @@ SpacerPairing = Tuple[int, int, int, int]
 def calculate_score(scores: Collection[int]) -> int:
     """Calculates the average score of <scores>, increasing the score if
     <scores> has high variance."""
-    variance = max(scores) - min(scores)
+    std = stdev(scores)
     avg = sum(scores) / len(scores)
-    return int(avg + variance / VARIANCE_IMPORTANCE)
+    return int(avg + std / VARIANCE_IMPORTANCE)
 
 
 # Where <SpacersSets> is the set of all spacers seqs, <MBPrimerBuilder> is the
@@ -513,6 +515,14 @@ class PairwisePrimerSet(PrimerSet):
         for f, r in enumerate(self._optimal_pairing):
             lst.append((self._forward_primers[f], self._reverse_primers[r]))
         return lst
+
+    def randomise_optimal_pairing(self) -> None:
+        """Randomises this sets pairwise scores."""
+        lst = [0, 1, 2, 3]
+        random.shuffle(lst)
+        pairing = tuple(lst)
+        self._optimal_pairing = pairing
+        self._min_pairing_score = self._pairing_scores[pairing]
 
     def get_score(self) -> float:
         return self._min_pairing_score
