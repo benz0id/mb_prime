@@ -17,6 +17,7 @@ from hetero_spacer_generator.sequence_tools import SeqAnalyzer
 
 C = TypeVar('C')
 DO_ERROR_CHECKING = True
+PRINT_EVERY = 10000
 seq_anal = SeqAnalyzer(degen=False)
 
 
@@ -810,16 +811,21 @@ class HeteroSeqScorer(BindingSeqScorer):
             param.r_params.rev_5p_ind(len(self._consensus))
         return self._best_params
 
-    def find_best(self) -> None:
+    def find_best(self, V: bool = False) -> None:
         """Finds the binding sequences with the lowest scores and stores them
         in <self._best_params>"""
         self._seq_iterator = self._get_iterator()
+        num = 0
 
         # Binding and adapter always 5'-3'
         for binding_pair in self._seq_iterator:
             fb, rb = binding_pair
             param = self._seq_iterator.get_last_param()
             for i in range(len(self._for_adapters)):
+                num += 1
+                if V:
+                    if num % PRINT_EVERY == 0:
+                        print(num, 'Possible pairs have been compared.')
                 fa = self._for_adapters[i]
                 ra = self._rev_adapters[i]
                 # Compare binding-adapter pairs. Incorporate score if possible.
@@ -978,11 +984,13 @@ class BestPrimers:
                                             self._rev_adapters,
                                             self._num_params_to_keep)
 
-    def get_n_best(self, n: int) -> List[BindingPairParams]:
+    def get_n_best(self, n: int, V: bool = False) -> List[BindingPairParams]:
         """Returns a list of lowest scoring binding pair params."""
         self._for_scorer.find_best()
         self._rev_scorer.find_best()
-        self._pair_scorer.find_best()
+        if V:
+            print('Completed individual analysis, moving onto pairwise.')
+        self._pair_scorer.find_best(V)
 
         def find_in(bind_param: BindingParams, params: List[BindingParams]) \
                 -> Union[bool, BindingParams]:

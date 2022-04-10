@@ -17,6 +17,8 @@ DISPLAY_GRAPH = pm.get('DISPLAY_GRAPH')
 
 msa = MSA(MSA_FILEPATH)
 
+msa.gen_plot()
+
 if DISPLAY_GRAPH:
     msa.show_plot()
 

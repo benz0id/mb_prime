@@ -27,6 +27,9 @@ AMPLICON_LENGTH_MIN = pm.get('AMPLICON_LENGTH_MIN')
 AMPLICON_LENGTH_MAX = pm.get('AMPLICON_LENGTH_MAX')
 CONSERVATION_WEIGHT = pm.get('CONSERVATION_WEIGHT')
 DIMER_WEIGHT = pm.get('DIMER_WEIGHT')
+GRAPH_OUT_FILEPATH = pm.get('GRAPH_OUT_FILEPATH')
+STORE_IMAGE = pm.get('STORE_IMAGE')
+DISPLAY_GRAPH = pm.get('DISPLAY_GRAPH')
 
 # Some error checking on inputs.
 cond1 = FORWARD_BINDING_START <= FORWARD_BINDING_END
@@ -36,38 +39,67 @@ cond3 = AMPLICON_LENGTH_MIN <= AMPLICON_LENGTH_MAX
 if not (cond1 and cond2 and cond3):
     raise ValueError('Ensure all specified ranges are valid.')
 
+print('Beginning analysis... ')
+
+# Extract specified ranges and construct Alignment.
 alignment = MSA(MSA_FILEPATH)
 f_allowed_5p = list(range(FORWARD_BINDING_START, FORWARD_BINDING_END + 1))
 r_allowed_5p = list(range(REVERSE_BINDING_START, REVERSE_BINDING_END + 1))
 a_allowed_len = list(range(AMPLICON_LENGTH_MIN, AMPLICON_LENGTH_MAX))
 
+# Display alignment graph.
+alignment.gen_plot()
+alignment.add_primers_to_graph(FORWARD_BINDING_START, FORWARD_BINDING_END,
+                               REVERSE_BINDING_START, REVERSE_BINDING_END,
+                               primer_region_name="Potential Primer Region",
+                               amplicon_region_name='Guaranteed Amplicon')
+if DISPLAY_GRAPH:
+    alignment.show_plot()
+
+if STORE_IMAGE:
+    alignment.save_plot(GRAPH_OUT_FILEPATH)
+
+# Perform analysis.
 bp = BestPrimers(alignment, f_allowed_5p, r_allowed_5p, FORWARD_BINDING_LENGTHS,
                  REVERSE_BINDING_LENGTHS, a_allowed_len, FORWARD_ADAPTERS,
                  REVERSE_ADAPTERS, NUM_TO_KEEP)
 
-best = bp.get_n_best(5)
+best = bp.get_n_best(5, V=True)
 
 for i, bps in enumerate(best):
     print('BINDING PAIR', i + 1)
     print(vis_score(bps))
 
+# Allow user to anaylse selected options.
 while True:
     sel = while_not_valid('Enter parameter number to extract binding sequences'
                           ' and for brief analysis.',
                           'Ensure that the given input is valid.',
                           mode=RANGE, start=1, end=5)
     sel_params = best[int(sel) - 1]
+
     print(get_seqs(sel_params, consensus=alignment.get_consensus()))
 
     fp = sel_params.f_params
     rp = sel_params.r_params
     print('\nForward Binding Region Analysis:')
-    start, stop = get_region(fp, False)
-    print(alignment.scan_region(start, stop + 1))
+    f_start, f_stop = get_region(fp, False)
+    print(alignment.scan_region(f_start, f_stop + 1))
 
     print('\nReverse Binding Region Analysis:')
-    start, stop = get_region(rp, False, 'r')
-    print(alignment.scan_region(start, stop + 1))
+    r_start, r_stop = get_region(rp, False, 'r')
+    print(alignment.scan_region(r_start, r_stop + 1))
+
+    # Display alignment graph.
+    alignment.gen_plot()
+    alignment.add_primers_to_graph(f_start, f_stop, r_start, r_stop)
+    if DISPLAY_GRAPH:
+        alignment.show_plot()
+
+    if STORE_IMAGE:
+        alignment.save_plot(GRAPH_OUT_FILEPATH)
+
+
 
 
 

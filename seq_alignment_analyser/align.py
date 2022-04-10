@@ -36,7 +36,7 @@ def get_complementarity(b1: str, b2: str) -> float:
 
 
 def sliding_window(arr: List[Union[int, float]],
-                       window_size: int) -> List[float]:
+                   window_size: int) -> List[float]:
     """Returns a sliding window of the given array with section sizes of
     <window_size>."""
     windowed = []
@@ -95,7 +95,36 @@ class MSA:
 
         return
 
-    def gen_plot(self, window_size: int) -> None:
+    def add_primers_to_graph(self, f_region_start: int, f_region_end: int,
+                             r_region_start: int, r_region_end: int,
+                             height: int = 50,
+                             primer_region_name: str = 'Primer Regions',
+                             amplicon_region_name: str = 'Amplicon Region') \
+            -> None:
+        """Highlights the amplicon_regions and primer regions on the graph. Sets
+        the amplicon_regions to appear at <height>."""
+        primer_regions = []
+        p_data = []
+        # Just add a bunch of blank data at height
+        for i in range(f_region_start, f_region_end + 1):
+            primer_regions.append(i)
+            p_data.append(height)
+        for i in range(r_region_start, r_region_end + 1):
+            primer_regions.append(i)
+            p_data.append(height)
+
+        amplicon_regions = []
+        a_data = []
+        for i in range(f_region_end + 1, r_region_start):
+            amplicon_regions.append(i)
+            a_data.append(height)
+
+        plt.plot(primer_regions, p_data, c='r', label=primer_region_name)
+        plt.plot(amplicon_regions, a_data, c='g', label=amplicon_region_name)
+
+        plt.legend(loc="lower left")
+
+    def gen_plot(self, window_size: int = WINDOW_SIZE) -> None:
         """Generates a plot showing the key attributes of this MSA."""
         plt.figure(figsize=(int(self.__len__() / 10), 6), dpi=80)
 
@@ -108,7 +137,7 @@ class MSA:
         percent_missed = sliding_window(self._percent_missed, window_size)
 
         plt.plot(x, conservation, c='g', label='Conservation')
-        plt.plot(x, percent_missed, c='r', label='Sequences Missed')
+        plt.plot(x, percent_missed, c='y', label='Sequences Missed')
 
         plt.legend(loc="upper left")
 
@@ -119,14 +148,12 @@ class MSA:
 
     def show_plot(self, window_size: int = WINDOW_SIZE) -> None:
         """Shows the currently stored plot."""
-        self.gen_plot(window_size)
         plt.show()
 
     def save_plot(self, filename: Union[Path, str],
                   window_size: int = WINDOW_SIZE) -> None:
         """Saves the path using the name and location specified in <filename>.
         """
-        self.gen_plot(window_size)
         x = list(range(1, len(self) + 1 - window_size))
         plt.xticks(x[4::5])
         plt.savefig(filename)
@@ -256,7 +283,7 @@ class MSA:
 
         # Find max potential for loss of sequences.
         max_lost_ind = max(list(range(start, stop)),
-                       key=lambda a: self.get_percent_missed(a))
+                           key=lambda a: self.get_percent_missed(a))
         max_loss = self.get_percent_missed(max_lost_ind)
 
         low_cons = []
@@ -282,29 +309,19 @@ class MSA:
 
         if max_loss > 0:
             s += 'Due to indels at position ' + str(max_lost_ind) + \
-            ', a minimum of ' + str(max_loss) + ' % of target sequences will ' \
-            'experience severe binding disruption.\n\n'
+                 ', a minimum of ' + str(
+                max_loss) + ' % of target sequences will ' \
+                            'experience severe binding disruption.\n\n'
 
         if len(low_cons) > 0:
             s += 'The following site have conservation levels below the minimum' \
                  ' threshold (' + str(MIN_COMP) + '%):\n'
             for ind in low_cons:
                 s += '    ' + str(ind) + ':' + \
-                str(self.get_conservation(ind)) + '%\n'
+                     str(self.get_conservation(ind)) + '%\n'
 
         if s:
             a = 'Reporting warnings found in the selected binding region...\n\n'
             a += s
             return a
         return ''
-
-
-
-
-
-
-
-
-
-
-
