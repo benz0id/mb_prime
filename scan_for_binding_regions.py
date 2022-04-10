@@ -9,7 +9,7 @@ pm = get_pm()
 
 # Ensure that necessary parameters have been defined.
 if not pm.can_sfbr():
-    raise ValueError('Ensure all required parameters in the config file are '
+    raise ValueError('Ensure all required parameters in the config file are ' +
                      'properly defined. Currently missing values include:' +
                      str(pm.missing_sfbr())[1:-1])
 
@@ -39,7 +39,7 @@ cond3 = AMPLICON_LENGTH_MIN <= AMPLICON_LENGTH_MAX
 if not (cond1 and cond2 and cond3):
     raise ValueError('Ensure all specified ranges are valid.')
 
-print('Beginning analysis... ')
+print('Close Graph to Begin Analysis.')
 
 # Extract specified ranges and construct Alignment.
 alignment = MSA(MSA_FILEPATH)
@@ -65,6 +65,8 @@ bp = BestPrimers(alignment, f_allowed_5p, r_allowed_5p, FORWARD_BINDING_LENGTHS,
                  REVERSE_ADAPTERS, NUM_TO_KEEP)
 
 best = bp.get_n_best(5, V=True)
+
+print("Analysis complete...")
 
 for i, bps in enumerate(best):
     print('BINDING PAIR', i + 1)

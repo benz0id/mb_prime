@@ -44,7 +44,7 @@ def get_dimer_score(seq1: str, seq2: str) -> float:
         Seq(seq1), Seq(seq2), seq_anal.get_non_consec_complementarity) * \
             TOTAL_WEIGHT
 
-    return 100 * (consec + total) / (len(seq1) + len(seq2))
+    return 15 * (consec + total) / (len(seq1) + len(seq2))
 
 
 def get_heterodimer_score(a1: str, b1: str, a2: str, b2: str) -> float:
@@ -965,6 +965,7 @@ class BestPrimers:
 
         self._init_scorers()
 
+
     def _init_scorers(self) -> None:
         """Initialises the scorers."""
         self._for_scorer = HomoSeqScorer(self._alignment, self._f_allowed_5p,
@@ -1079,8 +1080,14 @@ def vis_score(bps: BindingPairParams, ind: str = '    ') -> str:
     parameters. Indents all lines with indent."""
     fp = bps.f_params
     rp = bps.r_params
+    wcs = bps.get_mean_conservation() ** CONS_WEIGHT
+    wds = (bps.get_dimer_score() ** DIMER_WEIGHT *
+                            fp.get_dimer_score() ** DIMER_WEIGHT *
+                            rp.get_dimer_score() ** DIMER_WEIGHT)
     return ''.join([
         ind, 'Final Score: ', str(bps.get_final_score()), '\n',
+        ind, 'Weighted Conservation Score: ', str(wcs), '\n',
+        ind, 'Weighted Dimer Score: ', str(wds), '\n',
         ind, 'Pair Dimer Score: ', str(bps.get_dimer_score()), '\n',
         ind, 'Forward Dimer Score: ', str(fp.get_dimer_score()), '\n',
         ind, 'Reverse Dimer Score: ', str(rp.get_dimer_score()), '\n',
