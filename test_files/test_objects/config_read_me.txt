@@ -31,9 +31,9 @@
 # deciding where to place our primers.
 #
 # Conservation:
-#     This is important, as primers targeting these regions will not bind all
-#     sequences in the alignment with equal affinity, potentially resulting in
-#     a failure to amplify those sequences.
+#     This is important, as primers targeting less conserved regions will not
+#     bind all sequences in the alignment with equal affinity, potentially
+#     resulting in a failure to amplify those sequences.
 #
 # Sequences Missed:
 #     Regions containing indels are hard to target with primers, as misalignment
