@@ -44,7 +44,7 @@ def get_dimer_score(seq1: str, seq2: str) -> float:
         Seq(seq1), Seq(seq2), seq_anal.get_non_consec_complementarity) * \
             TOTAL_WEIGHT
 
-    return 15 * (consec + total) / (len(seq1) + len(seq2))
+    return 12 * (consec + total) / (len(seq1) + len(seq2))
 
 
 def get_heterodimer_score(a1: str, b1: str, a2: str, b2: str) -> float:

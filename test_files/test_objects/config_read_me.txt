@@ -10,7 +10,7 @@
 # Email: benjamin.tudorprice@mail.utoronto.ca
 # Version History
 #   08/04/2022: V1.0
-#       - Initial beta version.
+#       - Initial release.
 
 # This file contains a list of parameters that will be used at each stage in the
 # program. All of the variables under any one of the program headers must have
@@ -32,15 +32,15 @@
 #
 # Conservation:
 #     This is important, as primers targeting these regions will not bind all
-#     sequences in the alignment with equal affinity, leading to biased results.
+#     sequences in the alignment with equal affinity, potentially resulting in
+#     a failure to amplify those sequences.
 #
 # Sequences Missed:
 #     Regions containing indels are hard to target with primers, as misalignment
 #     between the primer and some subset of the sequences greatly reduces
 #     primer affinity for the target sequences. This metric shows what % of
-#     sequences must be lost due to this, at a minimum.
+#     sequences will be lost due to this, at a minimum.
 #
-# And more soon...
 
 # The first parameter required is the filepath of the MSA to be used. At the,
 # moment, only '.fsa' formatted sequences are accepted.
@@ -113,7 +113,7 @@
 # Finally, we need the allowable amplicon lengths. These should be compatible
 # with the binding regions you've specified (e.g. if your only forward site is at
 # base 300, and your only reverse site is 400, then you must have an amplicon of
-# size 101).
+# at least size 101).
 
 *AMPLICON_LENGTH_MIN = #int#
 *AMPLICON_LENGTH_MAX = #int#
@@ -151,7 +151,7 @@
 
 *SHOW_SPACER_MENU = False
 
-# This program is capable of mutlithreading to decrease runtime. Enter the
+# This program is capable of multithreading to decrease runtime. Enter the
 # number of cores you'd like to use below.
 
 *NUM_CORES = 1
