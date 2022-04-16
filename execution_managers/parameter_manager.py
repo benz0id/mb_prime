@@ -289,6 +289,7 @@ class ParameterManager:
             'GRAPH_OUT_FILEPATH': 's',
             'STORE_IMAGE': 'b',
             'DISPLAY_GRAPH': 'b',
+            'WINDOW_SIZE': 'i'
         }
 
         self._req_sfbr = {

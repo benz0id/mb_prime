@@ -6,7 +6,7 @@ from pathlib import Path
 # Verbosity
 from execution_managers.parameter_manager import get_pm
 
-V = False
+V = True
 
 # Processes to spawn.
 NUM_PROCS = 1
@@ -65,7 +65,6 @@ try:
     cw = pm.get('CONSERVATION_WEIGHT')
     dw = pm.get('DIMER_WEIGHT')
 except ValueError:
-    print('bollocks')
     dw = DIMER_WEIGHT
     cw = CONS_WEIGHT
 

@@ -38,7 +38,6 @@ def main():
                    num_hetero=HETEROGENEITY_REGION_LENGTH,
                    max_spacer_length=HETEROGENEITY_REGION_LENGTH)
     rg = hg.get_primer_gen()
-    sf = rg.get_spacer_sorter()
 
     # Form incomplete primers. To be completed with heterogeneity spacer.
     incomp_f_primer = MBPrimerBuilder(adapter_seq=FORWARD_ADAPTER,

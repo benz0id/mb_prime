@@ -52,7 +52,7 @@
 # used.
 
 *GRAPH_OUT_FILEPATH = DIR
-
+*WINDOW_SIZE = 10
 *STORE_IMAGE = False
 *DISPLAY_GRAPH = True
 

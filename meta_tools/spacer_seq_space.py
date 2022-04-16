@@ -1,5 +1,4 @@
 import threading
-from multiprocessing.managers import DictProxy
 from statistics import stdev
 from multiprocessing import Process, Manager
 import hetero_spacer_generator.spacer_generator.hetero_spacer_generator as hsg
@@ -13,23 +12,27 @@ import os
 A script to estimate the size sequence space of the average heterogeneity
 spacer alignment.
 '''
-
+# Verbosity
 V = True
-N = 10000000
+# Number of sequences to sample
+N = 1000000
+# Number of processes to use.
 N_threads = os.cpu_count()
-get_sd = False
-global do_threading
-do_threading = True
+# Whether to return the standard deviation.
+get_sd = True
+# Whether to use multiple processes.
+do_threading = False
 # Some number that divides 100
 alert_every_prcnt = 5
+# Parameter for the number of spacers to be generated.
 num_hetero_bases = 12
 max_spacer_length = 12
 seq_len = 12
-GC = 0.5
+GC = 0.41
 
 
 def main():
-    test_threading()
+    run()
 
 
 def nPr(n: int, r: int) -> int:
@@ -217,3 +220,69 @@ def calc_for_gc():
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
+"""
+
+
+
+/section{Approaches}
+
+
+/subsection{Sequence Comparisons}
+
+
+/subsection{Parsing Alignments}
+
+
+/subsubsection{Overview}
+
+
+/subsubsection{Conservation}
+
+
+/subsubsection{Sequences Missed}
+
+
+/subsection{Heterogeneity Spacer Generation}
+
+
+/subsubsection{Overview}
+
+
+/subsubsection{Sample Space is too Large to Fully Sample}
+
+
+/subsubsection{Characterising Primer Space}
+
+
+/subsubsection{Binding-Adapter Dimisation is More Important}
+
+
+/subsection{Alignment Analysis}
+
+
+/subsubsection{Overview and Learnings}
+
+
+/subsubsection{Runtime Analysis}
+
+
+/section{Results}
+
+
+/subsubsection{In Silico Analysis}
+
+
+/subsection{PCR Efficiency}
+
+
+/subsection{Sequencing Results}
+
+
+
+"""

@@ -30,6 +30,7 @@ DIMER_WEIGHT = pm.get('DIMER_WEIGHT')
 GRAPH_OUT_FILEPATH = pm.get('GRAPH_OUT_FILEPATH')
 STORE_IMAGE = pm.get('STORE_IMAGE')
 DISPLAY_GRAPH = pm.get('DISPLAY_GRAPH')
+WINDOW_SIZE = pm.get('WINDOW_SIZE')
 
 # Some error checking on inputs.
 cond1 = FORWARD_BINDING_START <= FORWARD_BINDING_END
@@ -42,7 +43,7 @@ if not (cond1 and cond2 and cond3):
 print('Close Graph to Begin Analysis.')
 
 # Extract specified ranges and construct Alignment.
-alignment = MSA(MSA_FILEPATH)
+alignment = MSA(MSA_FILEPATH, WINDOW_SIZE)
 f_allowed_5p = list(range(FORWARD_BINDING_START, FORWARD_BINDING_END + 1))
 r_allowed_5p = list(range(REVERSE_BINDING_START, REVERSE_BINDING_END + 1))
 a_allowed_len = list(range(AMPLICON_LENGTH_MIN, AMPLICON_LENGTH_MAX))

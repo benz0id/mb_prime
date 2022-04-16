@@ -58,6 +58,8 @@ class MSA:
         An array storing the alignment. [id][base_pos] => base
     _seq_names:
         An array storing the alignment. [id] => name
+    _window_size:
+        The size of the window when generating sliding window graphs.
     _consensus:
         The consensus sequence of the alignment.
     _conservation:
@@ -74,13 +76,15 @@ class MSA:
 
     _seqs: List[str]
     _seq_names: List[str]
+    _window_size: int
     _consensus: str
     _conservation: List[float]
     _percent_spacer: List[float]
     _percent_missed: List[float]
 
-    def __init__(self, filepath: Union[Path, str]):
+    def __init__(self, filepath: Union[Path, str], window_size: int):
         """Initialises this MSA using information sored in <filepath>."""
+        self._window_size = window_size
         self._parse_MSA(filepath)
         self._parse_consensus_attributes()
 
@@ -124,17 +128,17 @@ class MSA:
 
         plt.legend(loc="lower left")
 
-    def gen_plot(self, window_size: int = WINDOW_SIZE) -> None:
+    def gen_plot(self) -> None:
         """Generates a plot showing the key attributes of this MSA."""
         plt.figure(figsize=(int(self.__len__() / 10), 6), dpi=80)
 
-        x = list(range(1, len(self) + 1 - window_size))
+        x = list(range(1, len(self) + 1 - self._window_size))
         plt.tick_params(axis='x', which='major', labelsize=8)
 
         plt.title('Alignment Properties')
 
-        conservation = sliding_window(self._conservation, window_size)
-        percent_missed = sliding_window(self._percent_missed, window_size)
+        conservation = sliding_window(self._conservation, self._window_size)
+        percent_missed = sliding_window(self._percent_missed, self._window_size)
 
         plt.plot(x, conservation, c='g', label='Conservation')
         plt.plot(x, percent_missed, c='y', label='Sequences Missed')
@@ -142,19 +146,18 @@ class MSA:
         plt.legend(loc="upper left")
 
         fontsize = 10
-        plt.xlabel('Base Position (Window to i + ' + str(window_size) + ')',
+        plt.xlabel('Base Position (Window to i + ' + str(self._window_size) + ')',
                    fontsize=fontsize)
         plt.ylabel('Percent of Sequences', fontsize=fontsize)
 
-    def show_plot(self, window_size: int = WINDOW_SIZE) -> None:
+    def show_plot(self) -> None:
         """Shows the currently stored plot."""
         plt.show()
 
-    def save_plot(self, filename: Union[Path, str],
-                  window_size: int = WINDOW_SIZE) -> None:
+    def save_plot(self, filename: Union[Path, str]) -> None:
         """Saves the path using the name and location specified in <filename>.
         """
-        x = list(range(1, len(self) + 1 - window_size))
+        x = list(range(1, len(self) + 1 - self._window_size))
         plt.xticks(x[4::5])
         plt.savefig(filename)
 
