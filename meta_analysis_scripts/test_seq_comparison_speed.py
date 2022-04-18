@@ -10,13 +10,13 @@ sa = SeqAnalyzer(degen=True)
 random.seed(a=123456789, version=1)
 
 # Length of the two sequences to be compared
-seq1_len = 60
-seq2_len = 60
+seq1_len = 40
+seq2_len = 40
 
 # The number of different randomly generated sequences to compare.
-num_rand_seqs = 10
+num_rand_seqs = 100
 # The number of times to re-run each timing. Increases accuracy.
-num_repetitions = 10
+num_repetitions = 100
 # A factor by which to multiple the final time. To be used when expecting to
 # do more than one string comparison.
 factor = 1

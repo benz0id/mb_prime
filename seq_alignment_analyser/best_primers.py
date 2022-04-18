@@ -655,9 +655,11 @@ class HeteroSeqIterator(BindingSeqIterator):
                                          f_allowed_len)
         self._update_homo_iterators()
 
+    num = 0
     def __next__(self) -> Tuple[str, str]:
         """Gets the next potential forward reverse primer binding seqs formatted
         as strings, both 5' - 3'."""
+        self.num += 1
 
         # Try to fetch the next potential reverse binding seq.
         try:
