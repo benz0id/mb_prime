@@ -163,6 +163,9 @@
 
 *RIGOUR = 3
 
+# The number of sets to generate. Does not affect runtime.
+*NUM_SETS_TO_GEN = 3
+
 
 
 

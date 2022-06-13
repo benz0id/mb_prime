@@ -202,7 +202,7 @@ def primer_sets_to_str(primer_sets: List[PrimerSet], fasta: bool, ind: int,
     primer_str = ''
     for i, p_set in enumerate(primer_sets):
         if fasta:
-            primer_str += p_set.get_fasta_seqs(i + 1 + ind * len(primer_sets))
+            primer_str += p_set.get_fasta_seqs(i + ind * len(primer_sets))
         else:
             primer_str += p_set.get_plain_seqs()
         primer_str += sep

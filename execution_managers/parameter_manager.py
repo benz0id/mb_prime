@@ -318,6 +318,7 @@ class ParameterManager:
             'SHOW_SPACER_MENU': 'b',
             'NUM_CORES': 'i',
             'RIGOUR': 'i',
+            'NUM_SETS_TO_GEN' : 'i'
         }
 
         self._pot_values_dict = {}

@@ -7,7 +7,7 @@ from hetero_spacer_generator.primer_tools import MBPrimerBuilder
 from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import \
     HeteroGen
 from meta_tools.gen_n_primers import primer_sets_to_str
-NUM_SETS_TO_GEN = 5
+
 
 
 
@@ -30,6 +30,7 @@ def main():
     SHOW_SPACER_MENU = pm.get("SHOW_SPACER_MENU")
     NUM_CORES = pm.get("NUM_CORES")
     RIGOUR = pm.get("RIGOUR")
+    NUM_SETS_TO_GEN = pm.get('NUM_SETS_TO_GEN')
     DIMER_WEIGHT = 1
     CONS_WEIGHT = 2
 

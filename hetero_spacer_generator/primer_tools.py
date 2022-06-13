@@ -401,12 +401,12 @@ class PrimerSet(Iterable):
             str_rep += '\n'
         return str_rep
 
-    def get_fasta_seqs(self, set_number: int) -> str:
+    def get_fasta_seqs(self, set_number: int = 0) -> str:
         """Returns the sequences of this primer set as plain strings seperated
         by the newline character. Will name each primer according to the
         <set_number>, where each set is assumed to contain 4 primers. Does start
         at 0."""
-        primer_number = set_number * 4
+        primer_number = set_number * 4 + 1
         str_rep = ''
         for primer_inds in range(len(self._forward_primers)):
             for_primer = self._forward_primers[primer_inds]
@@ -414,13 +414,13 @@ class PrimerSet(Iterable):
             str_rep += ''.join(['>Forward #', str(primer_number), '\n'])
             str_rep += ''.join([str(for_primer.get_adapter_seq()),
                                 str(for_primer.get_index_seq()),
-                                str(for_primer.get_heterogen_seq()),
+                                str(for_primer.get_heterogen_seq()).lower(),
                                 str(for_primer.get_binding_seq())])
             str_rep += '\n'
             str_rep += ''.join(['>Reverse #', str(primer_number), '\n'])
             str_rep += ''.join([str(rev_primer.get_adapter_seq()),
                                 str(rev_primer.get_index_seq()),
-                                str(rev_primer.get_heterogen_seq()),
+                                str(rev_primer.get_heterogen_seq()).lower(),
                                 str(rev_primer.get_binding_seq())])
             str_rep += '\n'
             primer_number += 1
@@ -526,31 +526,6 @@ class PairwisePrimerSet(PrimerSet):
 
     def get_score(self) -> float:
         return self._min_pairing_score
-
-    def get_fasta_seqs(self, set_number: int) -> str:
-        """Returns the sequences of this primer set as plain strings seperated
-        by the newline character. Will name each primer according to the
-        <set_number>, where each set is assumed to contain 4 primers. Does start
-        at 0."""
-        primer_number = set_number * 4
-        str_rep = ''
-        for primer_inds in enumerate(self._optimal_pairing):
-            for_primer = self._forward_primers[primer_inds[0]]
-            rev_primer = self._reverse_primers[primer_inds[1]]
-            str_rep += ''.join(['>F', str(primer_number), '\n'])
-            str_rep += ''.join([str(for_primer.get_adapter_seq()),
-                                str(for_primer.get_index_seq()),
-                                str(for_primer.get_heterogen_seq()),
-                                str(for_primer.get_binding_seq())])
-            str_rep += '\n'
-            str_rep += ''.join(['>R', str(primer_number), '\n'])
-            str_rep += ''.join([str(rev_primer.get_adapter_seq()),
-                                str(rev_primer.get_index_seq()),
-                                str(rev_primer.get_heterogen_seq()),
-                                str(rev_primer.get_binding_seq())])
-            str_rep += '\n'
-            primer_number += 1
-        return str_rep
 
     def get_min_pairing_score(self) -> int:
         """Gets the minimum pairing score of this set."""

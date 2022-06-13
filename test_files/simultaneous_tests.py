@@ -3,7 +3,7 @@ from hetero_spacer_generator.primer_tools import eval_total_complementarity
 from hetero_spacer_generator.spacer_generator.spacer_filters import \
     SortForSimultaneous, cross_compare, remove_high_consec_complementarity, \
     remove_high_dimer_complementarity
-from tests.fixtures_and_helpers import *
+from test_files.fixtures_and_helpers import *
 import pytest
 
 
