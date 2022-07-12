@@ -4,9 +4,10 @@ from Bio.Seq import Seq
 import pytest
 import fixtures_and_helpers as fah
 from hetero_spacer_generator.primer_tools import MBPrimer, \
-    MBPrimerBuilder, PairwisePrimerSet
-from hetero_spacer_generator.spacer_generator.criteria import EvalMBPrimer
-from hetero_spacer_generator.sequence_tools import SeqAnalyzer
+    MBPrimerBuilder, PairwisePrimerSet, Primer
+from hetero_spacer_generator.spacer_generator.criteria import EvalMBPrimer, \
+    EvalMBPrimerNaive
+from hetero_spacer_generator.sequence_tools import P3Adapter, SeqAnalyzer
 from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import \
     HeteroGen, SpacerAlignmentGen
 from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
@@ -18,17 +19,47 @@ from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
 
 from meta_tools.template_sequences import *
 
+
+p3a = P3Adapter()
+class TestP3Adapter:
+
+    # Testing that lower scores are actually indicative of better dimer
+    # structure.
+
+    high_hairpin = Primer('GGCTATAGCTTAGCataaGCTAAGCTATCCG')
+    low_hairpin =  Primer('ATCGATGTGTAGTCGTGTAGTGTTTAGCTAT')
+
+    def test_accurate_hairpin_calc(self) -> None:
+
+        high, low = p3a.calc_hairpin_score(self.high_hairpin), \
+                    p3a.calc_hairpin_score(self.low_hairpin)
+        print(high, '>', low)
+        assert high > low
+
+    high =       Primer('ATCGATGTGTAGTCGTAGTGCGCACT')
+    med =        Primer('atcgatgcatgctaAGTCCTAGGACT')
+    low =        Primer('attagcggsatagctaggcggctgat')
+    pal_primer = Primer('CATTGCAAGTCCTAGGACTTGCAATG')
+
+    def test_accurate_homodimer_calc(self) -> None:
+        score = p3a.calc_homodimer_score
+        print(score(self.low), score(self.med), score(self.high), score(self.pal_primer))
+        assert score(self.low) < score(self.med) < score(self.high) < \
+               score(self.pal_primer)
+
+
+
 class TestPairwiseSorter:
     sfm = fah.SeqFixtureManager()
     sfm.num_to_generate = fah.MED_SAMPLE_SIZE
     sfm.do_all()
 
 
-DEF_RIGOUR = -5
+DEF_RIGOUR = -10
 
 @pytest.mark.parametrize('gen_set',
                          [
-                             (STANDARD_SET),
+                             STANDARD_SET,
                              (RANDOM_RHO_SET),
                              (SMALL_BINDING_SET),
                              (OPTIMAL_SET)
@@ -65,7 +96,8 @@ def test_increased_performace_rand_seq_sel(gen_set) -> None:
         filtered_score = filtered.get_score()
         # The score is proportional to the most stable heterodimer.
         # Higher => Worse
-        assert rand_score > filtered_score
+        assert rand_score >= filtered_score
+
 
 class TestSeqAnalyser:
 
@@ -76,15 +108,15 @@ class TestSeqAnalyser:
         """Tests that sequence comparison works on basic sequences."""
         s1 = Seq('AAAAA')
         s2 = Seq('AAAAA')
-        assert self.sa.comp_seqs_any_overlap(s1, s2, sa.get_consec_complementarity) == 0
+        assert self.sa.comp_seqs_any_overlap(s1, s2, self.sa.get_consec_complementarity) == 0
 
         s1 = Seq('AAAAA')
         s2 = Seq('TTTTT')
-        assert self.sa.comp_seqs_any_overlap(s1, s2, sa.get_consec_complementarity) == 5
+        assert self.sa.comp_seqs_any_overlap(s1, s2, self.sa.get_consec_complementarity) == 5
 
         s1 = Seq('AATT')
         s2 = Seq('AATT')
-        assert self.sa.comp_seqs_any_overlap(s1, s2, sa.get_consec_complementarity) == 4
+        assert self.sa.comp_seqs_any_overlap(s1, s2, self.sa.get_consec_complementarity) == 4
 
 
     def test_com_seqs_any_overlap_prod_seqs_same_len(self) -> None:
@@ -217,7 +249,7 @@ b4 = MBPrimer(ads, ids, hgs, bin)
 
 class TestEvalMBPrimer:
     """Test suite for EvalMBPrimer class"""
-    emp = EvalMBPrimer(12, 12)
+    emp = EvalMBPrimerNaive(12, 12)
 
     def test_eval_inherent_homodimer_consec(self) -> None:
         assert self.emp.eval_inherent_homodimer_consec(b1) == 8

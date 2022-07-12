@@ -16,8 +16,7 @@ from hetero_spacer_generator.primer_tools import HalfSet, HeteroSeqTool, \
     get_n_lowest_matrix, \
     get_these_inds, remove_highest_scores, calculate_score
 from hetero_spacer_generator.spacer_generator.criteria import EvalMBPrimer, \
-    get_hetero_hetero_binding_criteria, \
-    get_homo_hetero_binding_criteria
+    EvalMBPrimer3, EvalMBPrimerNaive
 from statistics import mean
 
 # Intervals for clearing worst performing HalfSets in PairwiseSpacerSorter
@@ -167,7 +166,7 @@ class SortForPairwise(SpacerSorter):
         called in order to ensure proper method functionality."""
         super().__init__(max_spacer_length, num_hetero, num_pairings_to_comp)
         self._degen = degen
-        self._primer_evaluator = EvalMBPrimer(max_spacer_length, num_hetero,
+        self._primer_evaluator = EvalMBPrimerNaive(max_spacer_length, num_hetero,
                                               self._degen)
         self._for_primer = MBPrimerBuilder()
         self._rev_primer = MBPrimerBuilder()
@@ -215,14 +214,23 @@ class SortForPairwise(SpacerSorter):
             self._rev_single_scores.append(1)
             self._for_single_scores.append(1)
 
+        max_f_length = len(self._for_primer) + len(max(for_seqs[0], key=len))
+        max_r_length = len(self._rev_primer) + len(max(rev_seqs[0], key=len))
+
+        if max_r_length < 60 and max_f_length < 60:
+            self._primer_evaluator = EvalMBPrimer3(max_spacer_length, num_hetero)
+            print('')
+        self._build_criteria()
+
+
     # INSERT NEW CRITERIA HERE
     def _build_criteria(self) -> None:
         """Constructs the criteria attributes with some Callables"""
         self._single_criteria, self._single_criteria_weights = \
-            get_homo_hetero_binding_criteria(self._primer_evaluator)
+            self._primer_evaluator.get_homo_criteria()
 
         self._pair_criteria, self._pair_criteria_weights = \
-            get_hetero_hetero_binding_criteria(self._primer_evaluator)
+            self._primer_evaluator.get_hetero_criteria()
         self._pair_criteria_weights_list = []
         for criterion in self._pair_criteria:
             self._pair_criteria_weights_list.append(

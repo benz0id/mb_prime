@@ -1,6 +1,7 @@
 from Bio.Seq import Seq
 from typing import List, Tuple, Iterable, Callable
 from hetero_spacer_generator.defaults import DEGEN_TO_POSSIBLE
+import primer3 as p3
 
 
 def order_seqs(seq1: Seq, seq2: Seq) -> Tuple[Seq, Seq, bool]:
@@ -187,6 +188,51 @@ def compare_bases_degenerate(b1: str, b2: str) -> bool:
 
     return False
 
+
+
+class P3Adapter:
+    """Adapts Primer3 Methods to be compatible with other objects used in this
+    program."""
+
+    def __init__(self) -> None:
+        self._counting = False
+        self._count = 0
+
+    def start_counting_comparisons(self) -> None:
+        """Begins counting the number of sequence analyses performed."""
+        self._count = 0
+        self._counting = True
+
+    def stop_counting_comparisons(self) -> int:
+        """Returns the number of sequence analyses performed since
+        start_counting_comparisons was last called."""
+        self._counting = True
+        return self._count
+
+    def calc_hairpin_score(self, primer: Seq) -> int:
+        """Returns the free energy of the most stable hairpin in the primer"""
+        if self._counting:
+            self._count += 1
+        return int(p3.calcHairpin(str(primer)).dg) * -1
+
+    def calc_homodimer_score(self, primer: Seq) -> int:
+        """Returns the free energy of the most stable hairpin in the primer"""
+        if self._counting:
+            self._count += 1
+        return int(p3.calcHomodimer(str(primer)).dg) * -1
+
+    def calc_heterodimer_score(self, primer1: Seq, primer2: Seq) -> int:
+        """Returns the free energy of the most stable hairpin in the primer"""
+        if self._counting:
+            self._count += 1
+        return int(p3.calcHeterodimer(str(primer1), str(primer2)).dg) * -1
+
+
+primer3_adapter = P3Adapter()
+
+
+def get_p3_adapter() -> P3Adapter:
+    return primer3_adapter
 
 class SeqAnalyzer:
     """Responsible for analysing features of sequences."""

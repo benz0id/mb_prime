@@ -86,10 +86,10 @@ class MBPrimer(Primer):
         super().__init__(''.join([adapter_seq, index_seq, heterogen_seq,
                                   binding_seq]))
 
-        self._adapter_seq = Seq(adapter_seq)
-        self._index_seq = Seq(index_seq)
-        self._heterogen_seq = Seq(heterogen_seq)
-        self._binding_seq = Seq(binding_seq)
+        self._adapter_seq = Seq(adapter_seq.upper())
+        self._index_seq = Seq(index_seq.upper())
+        self._heterogen_seq = Seq(heterogen_seq.upper())
+        self._binding_seq = Seq(binding_seq.upper())
         self._5p_len = len(adapter_seq) + len(index_seq)
         self._3p_len = len(binding_seq)
 
@@ -165,6 +165,9 @@ class MBPrimerBuilder(Iterable):
         self._index_seq = index_seq
         self._heterogen_seq = heterogen_seq
         self._binding_seq = binding_seq
+
+    def __len__(self) -> int:
+        return len(self.get_mbprimer())
 
     def __iter__(self) -> Iterator[Seq]:
         return [self._adapter_seq, self._index_seq, self._heterogen_seq,
@@ -458,7 +461,7 @@ def calculate_score(scores: Collection[int]) -> int:
 
 
 # Where <SpacersSets> is the set of all spacers seqs, <MBPrimerBuilder> is the
-# incomplete spacer. Returns a list of all scores.
+# incomplete primer. Returns a list of all scores.
 PairWiseCriterionSingle = Callable[[MBPrimer], int]
 
 
