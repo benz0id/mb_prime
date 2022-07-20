@@ -1,10 +1,15 @@
-from typing import Any, Dict, List, Union
+import os
+from typing import Any, Dict, List, Tuple, Union
 from pathlib import Path
 from hetero_spacer_generator.defaults import DEGEN_TO_POSSIBLE, BASES, MIN_COMP, \
     WINDOW_SIZE
 from hetero_spacer_generator.sequence_tools import is_degen_base
-from Bio import SeqIO
+from Bio import SeqIO, AlignIO
 import matplotlib.pyplot as plt
+import logging
+
+log = logging.getLogger('root')
+DEFAULT_WINDOW_SIZE = 5
 
 
 # An adapter class designed to parse alignments, and extract properties from
@@ -37,7 +42,7 @@ def get_complementarity(b1: str, b2: str) -> float:
 
 def sliding_window(arr: List[Union[int, float]],
                    window_size: int) -> List[float]:
-    """Returns a sliding window of the given array with section sizes of
+    """Returns a sliding distraction of the given array with section sizes of
     <window_size>."""
     windowed = []
     for i in range(len(arr) - window_size):
@@ -47,10 +52,18 @@ def sliding_window(arr: List[Union[int, float]],
     return windowed
 
 
+KNOWN_MSA_TYPES = ['clustal', 'emboss', 'fasta', 'fasta-m10', 'ig',
+                   'maf', 'mauve', 'msf', 'nexus', 'phylip',
+                   'phylip-sequential', 'phylip-relaxed', 'stockholm']
+
+
 class MSA:
     """
     A multiple sequence alignment containing a region to be targeted for
     metabarcoding analyses.
+    === Public Attributes ===
+
+    filename: The name of this MSA's containing file.
 
     === Private Attributes ===
 
@@ -59,7 +72,7 @@ class MSA:
     _seq_names:
         An array storing the alignment. [id] => name
     _window_size:
-        The size of the window when generating sliding window graphs.
+        The size of the distraction when generating sliding distraction graphs.
     _consensus:
         The consensus sequence of the alignment.
     _conservation:
@@ -74,6 +87,7 @@ class MSA:
         if only a few sequences had indels at this location.
     """
 
+    filename: str
     _seqs: List[str]
     _seq_names: List[str]
     _window_size: int
@@ -82,13 +96,19 @@ class MSA:
     _percent_spacer: List[float]
     _percent_missed: List[float]
 
-    def __init__(self, filepath: Union[Path, str], window_size: int):
+    def __init__(self, filepath: Path, window_size: int = 5,
+                 filetype: str = 'fasta'):
         """Initialises this MSA using information sored in <filepath>."""
+        self.filename = os.path.basename(filepath)
         self._window_size = window_size
-        self._parse_MSA(filepath)
+        self._parse_MSA(filepath, filetype)
         self._parse_consensus_attributes()
 
-    def _parse_MSA(self, filepath: Union[Path, str]) -> None:
+    def __hash__(self) -> int:
+        """Hash is dependent on filename."""
+        return hash(self.filename)
+
+    def _parse_MSA(self, filepath: Path, filetype: str) -> None:
         """Initialises the sequence attributes of this class using the data
         stored in <filepath>. Accepts several filetypes."""
         self._seqs = []
@@ -96,8 +116,32 @@ class MSA:
         file_type = str(filepath).split('.')[-1]
         if file_type in ['fas', 'fst', 'fasta']:
             self._parse_from_fasta(filepath)
+        else:
+            self._parse_from_other(filepath, filetype)
 
+        log.info(''.join([str(filepath), ' successfully parsed as a ',
+                          filetype, ' file.']))
         return
+
+    def _parse_from_other(self, filepath: Path, filetype: str) -> None:
+        """Parses a non-fasta alignment."""
+        if filetype not in KNOWN_MSA_TYPES:
+            log.critical('Unknown file type received.')
+            raise ValueError(''.join([
+                '"', filetype, '"', 'is an unknown MSA filetype.',
+                ' Known alignments include:', '\n'.join(KNOWN_MSA_TYPES)
+            ]))
+        try:
+            alignment = AlignIO.read(open(filepath), filetype)
+        except ValueError:
+            log.critical('Failed to parse ' + str(filepath) + ' as a ',
+                         filetype, ' file.')
+            raise (IOError('Failed to parse ' + str(filepath) + ' as a ',
+                           filetype, ' file.'))
+
+        for record in alignment:
+            self._seqs.append(record.seq)
+            self._seq_names.append(record.id)
 
     def add_primers_to_graph(self, f_region_start: int, f_region_end: int,
                              r_region_start: int, r_region_end: int,
@@ -146,8 +190,9 @@ class MSA:
         plt.legend(loc="upper left")
 
         fontsize = 10
-        plt.xlabel('Base Position (Window to i + ' + str(self._window_size) + ')',
-                   fontsize=fontsize)
+        plt.xlabel(
+            'Base Position (Window to i + ' + str(self._window_size) + ')',
+            fontsize=fontsize)
         plt.ylabel('Percent of Sequences', fontsize=fontsize)
 
     def show_plot(self) -> None:
@@ -262,7 +307,7 @@ class MSA:
         return self._percent_missed[base_ind]
 
     def __len__(self) -> int:
-        """Returns the number of sequences in this alignment."""
+        """Returns the number of nucleotides in this alignment."""
         return len(self._seqs[0])
 
     def get_num_seqs(self) -> int:

@@ -4,8 +4,6 @@ from pathlib import Path
 # === Misc ===
 
 # Verbosity
-from execution_managers.parameter_manager import get_pm
-
 V = True
 
 # Processes to spawn.
@@ -34,7 +32,7 @@ RIGOUR = 0
 # === Alignment Analyser Defaults ===
 # Minimum complementarity at binding site in alignment.
 MIN_COMP = 85
-# Defualt window size when generating sliding window charts.
+# Defualt distraction size when generating sliding distraction charts.
 WINDOW_SIZE = 10
 # The number of primers to keep during execution.
 NUM_TO_KEEP = 10000
@@ -59,17 +57,6 @@ TOTAL_WEIGHT = 1
 DIMER_WEIGHT = 1
 # Relative importance of conservation across selected region.
 CONS_WEIGHT = 2
-# If we have them, use user define attributes.
-try:
-    pm = get_pm()
-    cw = pm.get('CONSERVATION_WEIGHT')
-    dw = pm.get('DIMER_WEIGHT')
-except ValueError:
-    dw = DIMER_WEIGHT
-    cw = CONS_WEIGHT
-
-DIMER_WEIGHT = dw
-CONS_WEIGHT = cw
 
 # === SpacerAlignmentGen Specific defaults ===
 # Begin default criteria weighting.
