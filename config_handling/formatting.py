@@ -19,6 +19,12 @@ INT_LIST = 'Format: "val1, val2, val3..."'
 RANGE = 'Format: "start, stop" (inclusive)'
 TIME = 'Format "int: int: int" (hrs:mins:secs)'
 
+
+def incl_to_range(incl_range: InclRange) -> range:
+    """Converts the given <incl_range> to an actual range."""
+    return range(incl_range.start, incl_range.stop + 1)
+
+
 def int_strip(s: str) -> int:
     """Removes all non-numeric characters from s and converts it to an int.
     Raises ValueError upon failure. Integer must be continuous series of

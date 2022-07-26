@@ -3,6 +3,7 @@ import collections
 from typing import Any, Callable, Dict, List, Tuple, Type, Union
 import logging
 import abc
+import os
 
 import config_handling.input_validator as iv
 import config_handling.command_line_tools as cli
@@ -243,7 +244,10 @@ class PathParam(SimpleParameter):
     def query_user(self) -> None:
         """Fetch an integer value from the user."""
         s = cli.prompt(self._msg, self._validations)
-        self.data = Path(s)
+        if s == 'DIR':
+            self.data = Path(os.path.dirname(__file__)).parent
+        else:
+            self.data = Path(s)
 
 
 class TargetRegionParam(Parameter):

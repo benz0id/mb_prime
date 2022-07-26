@@ -19,6 +19,8 @@ AUTOFILL = True
 def get_config_file() -> str:
     """Lets the user select an existing config, or creates a new one."""
     configs = os.listdir(CONFIG_PATH)
+    configs.remove('__pycache__')
+    configs = [config[:-3] for config in configs]
     configs.insert(0, 'Create New Config')
     sel = cli.menu(
         configs, 'Config File Select', 'Enter the number corresponding to'
@@ -54,10 +56,10 @@ def get_new_config() -> str:
 
     config_out = CONFIG_PATH / (config_name.data + '.py')
 
-    alignments_path = param.PathParam('alignments_path', 'Enter path to file '
-                                                         'containing '
-                                                         'alignments.',
-                                      [])
+    alignments_path = param.PathParam(
+        'alignments_path', 'Enter path to file containing alignments or DIR to'
+                           'use local alignments file.', [])
+
 
     alignment_type = param.StrParam('alignment_type',
                                     'Enter the type of alignments'

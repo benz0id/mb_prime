@@ -149,6 +149,8 @@ def is_valid_DNA(s: str) -> bool:
 
 def is_valid_path(s: str) -> bool:
     """Returns whether <s> is a valid filepath."""
+    if s == 'DIR':
+        return True
     if Path(s).exists():
         return True
     else:
