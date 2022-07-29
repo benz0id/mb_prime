@@ -113,10 +113,10 @@ class BindingIteratorManager:
 
     t: str
 
-    def __init__(self, primer_primer_distance: int, primer_target_distance: int,
+    def __init__(self, msa_to_targets: Dict[MSA, List[TargetRegionInfo]],
+                 primer_primer_distance: int, primer_target_distance: int,
                  target_region_len: InclRange, binding_region_len: InclRange,
-                 ideal_binding_size: int,
-                 msa_to_targets: Dict[MSA, List[TargetRegionInfo]]) -> None:
+                 ideal_binding_size: int) -> None:
         """Initialises all iterators 'maximally' i.e. They can select from any
         possible pair that would leave every other target with a valid pair.
 

@@ -69,6 +69,8 @@ class BindingPair:
     f_len: int
     r_len: int
 
+    unified_score: int
+
     def __init__(self, msa: MSA, target_name: str, f_5p: int, r_5p: int,
                  f_len: int, r_len: int) -> None:
         """Initialises this pair using hte given attributes. Extracts primer
@@ -87,6 +89,30 @@ class BindingPair:
 
         self.f_seq = msa.get_consensus()[f_5p: f_5p + f_len]
         self.r_seq = rev_comp(msa.get_consensus()[r_5p - r_len + 1: r_5p + 1])
+
+    def set_unified_score(self, unified_score: int) -> None:
+        self.unified_score = unified_score
+
+    def get_unified_score(self) -> int:
+        return self.unified_score
+
+    def __lt__(self, other):
+        return self.get_unified_score() < other.get_unified_score()
+    
+    def __le__(self, other):
+        return self.get_unified_score() <= other.get_unified_score()
+    
+    def __gt__(self, other):
+        return self.get_unified_score() > other.get_unified_score()
+    
+    def __ge__(self, other):
+        return self.get_unified_score() >= other.get_unified_score()
+    
+    def __eq__(self, other):
+        return other.get_unified_score() == self.get_unified_score()
+    
+    def __repr__(self):
+        return 'BindingPair(' + str(self.get_unified_score()) + ')'
 
 
 class PrimerPartsManager:

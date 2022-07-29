@@ -7,6 +7,7 @@ import config_handling.parameters as param
 import os
 from pathlib import Path
 from seq_alignment_analyser.align import MSA
+from test_files.fixtures_and_helpers import ALIGNMENTS_PATH
 
 CONFIG_PATH = Path(os.path.dirname(__file__)).parent / 'configs'
 
@@ -19,7 +20,8 @@ AUTOFILL = True
 def get_config_file() -> str:
     """Lets the user select an existing config, or creates a new one."""
     configs = os.listdir(CONFIG_PATH)
-    configs.remove('__pycache__')
+    if '__pycache__' in configs:
+        configs.remove('__pycache__')
     configs = [config[:-3] for config in configs]
     configs.insert(0, 'Create New Config')
     sel = cli.menu(
@@ -179,7 +181,7 @@ def get_new_config() -> str:
     with open(config_out, 'w') as outfile:
         outfile.write(out_str)
 
-    return config_name[:-3]
+    return config_name.data[:-3]
 
 
 # Input some predetermined set of strings.
@@ -212,7 +214,7 @@ if __name__ == '__main__':
     to_write = [
         'new_config',
         'Y',
-        'C:\\Users\\bfern\\PycharmProjects\\mb_prime\\test_files\\test_objects\\alignments',
+        str(ALIGNMENTS_PATH),
         'fasta',
         '10, 150',
         '15, 25',
