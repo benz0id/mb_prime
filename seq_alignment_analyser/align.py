@@ -270,13 +270,18 @@ class MSA:
         """Returns the conservation at the given <base_ind>."""
         return self._conservation[:]
 
-    def get_mean_conservation(self, start: int, stop: int) -> float:
+    def get_total_conservation(self, start: int, stop: int) -> float:
         """Returns the mean % conservation across the given region -
         [start, stop)."""
         s = 0
         for cons in self._conservation[start: stop + 1]:
             s += cons
-        return s / (stop - start + 1)
+        return s
+
+    def get_mean_conservation(self, start: int, stop: int) -> float:
+        """Returns the mean % conservation across the given region -
+        [start, stop)."""
+        return self.get_total_conservation(start, stop) / (stop - start + 1)
 
     def get_percent_spacer_arr(self) -> List[float]:
         """Returns the percent of the alignment that is spacer at the given

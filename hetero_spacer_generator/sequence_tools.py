@@ -1,3 +1,5 @@
+import abc
+
 from Bio.Seq import Seq
 from typing import List, Tuple, Iterable, Callable
 from hetero_spacer_generator.defaults import DEGEN_TO_POSSIBLE
@@ -189,8 +191,7 @@ def compare_bases_degenerate(b1: str, b2: str) -> bool:
     return False
 
 
-
-class P3Adapter:
+class P3Adapter(abc.ABC):
     """Adapts Primer3 Methods to be compatible with other objects used in this
     program."""
 
@@ -206,33 +207,101 @@ class P3Adapter:
     def stop_counting_comparisons(self) -> int:
         """Returns the number of sequence analyses performed since
         start_counting_comparisons was last called."""
+        self._counting = False
+        return self._count
+
+
+class P3AdapterFloat(P3Adapter):
+    """Adapts Primer3 Methods to be compatible with other objects used in this
+    program."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._counting = False
+        self._count = 0
+
+    def start_counting_comparisons(self) -> None:
+        """Begins counting the number of sequence analyses performed."""
+        self._count = 0
         self._counting = True
+
+    def stop_counting_comparisons(self) -> int:
+        """Returns the number of sequence analyses performed since
+        start_counting_comparisons was last called."""
+        self._counting = False
+        return self._count
+
+    def calc_hairpin_score(self, primer: Seq) -> float:
+        """Returns the free energy of the most stable hairpin in the primer"""
+        if self._counting:
+            self._count += 1
+        return p3.calcHairpin(str(primer)).dg
+
+    def calc_homodimer_score(self, primer: Seq) -> float:
+        """Returns the free energy of the most stable hairpin in the primer"""
+        if self._counting:
+            self._count += 1
+        return p3.calcHomodimer(str(primer)).dg
+
+    def calc_heterodimer_score(self, primer1: Seq, primer2: Seq) -> float:
+        """Returns the free energy of the most stable hairpin in the primer"""
+        if self._counting:
+            self._count += 1
+        return p3.calcHeterodimer(str(primer1), str(primer2)).dg
+
+
+class P3AdapterInt(P3Adapter):
+    """Adapts Primer3 Methods to be compatible with other objects used in this
+    program."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._counting = False
+        self._count = 0
+
+    def start_counting_comparisons(self) -> None:
+        """Begins counting the number of sequence analyses performed."""
+        self._count = 0
+        self._counting = True
+
+    def stop_counting_comparisons(self) -> int:
+        """Returns the number of sequence analyses performed since
+        start_counting_comparisons was last called."""
+        self._counting = False
         return self._count
 
     def calc_hairpin_score(self, primer: Seq) -> int:
         """Returns the free energy of the most stable hairpin in the primer"""
         if self._counting:
             self._count += 1
-        return int(p3.calcHairpin(str(primer)).dg) * -1
+        return int(p3.calcHairpin(str(primer)).dg) * - 1
 
     def calc_homodimer_score(self, primer: Seq) -> int:
         """Returns the free energy of the most stable hairpin in the primer"""
         if self._counting:
             self._count += 1
-        return int(p3.calcHomodimer(str(primer)).dg) * -1
+        return int(p3.calcHomodimer(str(primer)).dg) * - 1
 
     def calc_heterodimer_score(self, primer1: Seq, primer2: Seq) -> int:
         """Returns the free energy of the most stable hairpin in the primer"""
         if self._counting:
             self._count += 1
-        return int(p3.calcHeterodimer(str(primer1), str(primer2)).dg) * -1
+        return int(p3.calcHeterodimer(str(primer1), str(primer2)).dg) * - 1
 
 
-primer3_adapter = P3Adapter()
+primer3_adapter_int = P3AdapterInt()
 
 
-def get_p3_adapter() -> P3Adapter:
-    return primer3_adapter
+def get_p3_adapter_int() -> P3AdapterInt:
+    return primer3_adapter_int
+
+
+primer3_adapter_int = P3AdapterInt()
+
+
+def get_p3_adapter_int() -> P3AdapterInt:
+    return primer3_adapter_int
+
 
 class SeqAnalyzer:
     """Responsible for analysing features of sequences."""

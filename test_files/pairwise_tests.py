@@ -7,7 +7,7 @@ from hetero_spacer_generator.primer_tools import MBPrimer, \
     MBPrimerBuilder, PairwisePrimerSet, Primer
 from hetero_spacer_generator.spacer_generator.criteria import EvalMBPrimer, \
     EvalMBPrimerNaive
-from hetero_spacer_generator.sequence_tools import P3Adapter, SeqAnalyzer
+from hetero_spacer_generator.sequence_tools import P3AdapterInt, SeqAnalyzer
 from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import \
     HeteroGen, SpacerAlignmentGen
 from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
@@ -20,7 +20,7 @@ from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
 from meta_tools.template_sequences import *
 
 
-p3a = P3Adapter()
+p3a = P3AdapterInt()
 class TestP3Adapter:
 
     # Testing that lower scores are actually indicative of better dimer

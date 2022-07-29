@@ -5,7 +5,7 @@ from Bio.Seq import Seq
 from hetero_spacer_generator.defaults import CONSEC_WEIGHT, TOTAL_WEIGHT
 from hetero_spacer_generator.primer_tools import HeteroSeqTool, \
     MBPrimer, MBPrimerBuilder, PairWiseCriterionSingle, rev_seq
-from hetero_spacer_generator.sequence_tools import SeqAnalyzer, get_p3_adapter
+from hetero_spacer_generator.sequence_tools import SeqAnalyzer, get_p3_adapter_int
 
 
 class EvalMBPrimer(HeteroSeqTool):
@@ -43,7 +43,7 @@ class EvalMBPrimer3(EvalMBPrimer):
     """Generates primer evaluation criteria using thermal estimates produced by
      Primer3"""
 
-    p3a = get_p3_adapter()
+    p3a = get_p3_adapter_int()
 
     def __init__(self, max_spacer_length: int, num_hetero: int,
                  degen: bool = None):

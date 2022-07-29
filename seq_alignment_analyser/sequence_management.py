@@ -11,11 +11,11 @@ def comp(seq: str) -> str:
     for c in seq:
         if c.upper() == 'A':
             new_seq += 'T'
-        if c.upper() == 'T':
+        elif c.upper() == 'T':
             new_seq += 'A'
-        if c.upper() == 'C':
+        elif c.upper() == 'C':
             new_seq += 'G'
-        if c.upper() == 'G':
+        elif c.upper() == 'G':
             new_seq += 'C'
         else:
             raise ValueError('Invalid dna sequence received: ' + seq)
@@ -41,6 +41,9 @@ class BindingPair:
     # Primer Params
     f_seq: The sequence of the forward primer.
     r_seq: The sequence of the reverse primer.
+
+    f_mt: The melting temp of the forward binding sequence.
+    r_mt: The melting temp of the reverse binding sequence.
 
     f_5p: The index of the most 5' base bound by the forward primer on the
         alignment.
@@ -76,11 +79,14 @@ class BindingPair:
         self.f_5p = f_5p
         self.r_5p = r_5p
 
+        self.f_mt = 0
+        self.r_mt = 0
+
         self.f_len = f_len
         self.r_len = r_len
 
         self.f_seq = msa.get_consensus()[f_5p: f_5p + f_len]
-        self.r_seq = rev_comp(msa.get_consensus()[r_5p: r_5p + r_len])
+        self.r_seq = rev_comp(msa.get_consensus()[r_5p - r_len + 1: r_5p + 1])
 
 
 class PrimerPartsManager:
@@ -95,42 +101,32 @@ class PrimerPartsManager:
 
     _binding_pair_pool: The set of binding pairs selected so far.
     """
-    _target_to_fivep_seqs: Dict[str, fmt.AdapterPair]
+    _fivep_seqs: List[fmt.AdapterPair]
     _binding_pair_pool: List[BindingPair]
     _msa_to_target: Dict[MSA, List[fmt.TargetRegionInfo]]
 
-    def __init__(self, target_to_fivep_seqs:
-    Dict[fmt.TargetRegionInfo, fmt.AdapterPair],
+    def __init__(self, target_to_fivep_seqs: List[fmt.AdapterPair],
                  msa_to_targets: Dict[MSA, List[fmt.TargetRegionInfo]]) -> None:
         """Initialises this class using the given parameters."""
         self._binding_pair_pool = []
-        self._target_to_fivep_seqs = {}
+        self._fivep_seqs = deepcopy(target_to_fivep_seqs)
         self._msa_to_target = deepcopy(msa_to_targets)
 
-        for target in target_to_fivep_seqs.keys():
-            self._target_to_fivep_seqs[target.name] = \
-                target_to_fivep_seqs[target]
 
-    def add_binding_pair(self, binding_pair: BindingPair) -> None:
+
+    def add_bp(self, binding_pair: BindingPair) -> None:
         """Creates and returns a binding pair using the given attributes, as
         well as adding it to the growing """
         self._binding_pair_pool.append(binding_pair)
 
-    def get_all_5p(self, target: str) \
-            -> Tuple[Tuple[str, ...], Tuple[str, str]]:
-        """Returns all 5' sequences in the 5'-3' direction in a list,
-        except for the two 5' seqs to be used for <target>, which will be
-        returned in a separate, second tuple."""
-        five_ps = []
-        target_five_ps = self._target_to_fivep_seqs[target]
-        # Collect all seqs.
-        for other_target in self._target_to_fivep_seqs:
-            # Store the target's 5' seqs separately.
-            if target == other_target:
-                pass
-            five_ps.extend(self._target_to_fivep_seqs[other_target])
+    def get_all_5p(self) -> Tuple[str, ...]:
+        """Returns all 5' sequences in the 5'-3' direction in a list."""
+        seqs = []
+        for adapter_pair in self._fivep_seqs:
+            seqs.append(adapter_pair.forward)
+            seqs.append(adapter_pair.reverse)
 
-        return tuple(five_ps), target_five_ps
+        return tuple(seqs)
 
     def get_all_binding_seqs(self) -> Tuple[str, ...]:
         """Returns all the currently collected binding sequences 5' - 3'."""
