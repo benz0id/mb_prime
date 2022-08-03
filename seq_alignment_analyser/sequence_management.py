@@ -3,6 +3,7 @@ from typing import Dict, List, Tuple
 
 from seq_alignment_analyser.align import MSA
 import config_handling.formatting as fmt
+from seq_alignment_analyser.best_primers import BindingPairParams
 
 
 def comp(seq: str) -> str:
@@ -69,7 +70,7 @@ class BindingPair:
     f_len: int
     r_len: int
 
-    unified_score: int
+    unified_score: float
 
     def __init__(self, msa: MSA, target_name: str, f_5p: int, r_5p: int,
                  f_len: int, r_len: int) -> None:
@@ -87,13 +88,22 @@ class BindingPair:
         self.f_len = f_len
         self.r_len = r_len
 
-        self.f_seq = msa.get_consensus()[f_5p: f_5p + f_len]
-        self.r_seq = rev_comp(msa.get_consensus()[r_5p - r_len + 1: r_5p + 1])
+        self.unified_score = 0
 
-    def set_unified_score(self, unified_score: int) -> None:
+    def get_f_seq(self) -> str:
+        """Returns the sequence of the forward binding seqeunce 5'-3'."""
+        return self.msa.get_consensus()[self.f_5p: self.f_5p + self.f_len]
+
+    def get_r_seq(self) -> str:
+        """Returns the sequence of the reverse binding seqeunce 5'-3'."""
+        return rev_comp(self.msa.get_consensus()[self.r_5p - self.r_len + 1:
+                                                 self.r_5p + 1])
+
+    def set_unified_score(self, unified_score: float) -> None:
         self.unified_score = unified_score
 
-    def get_unified_score(self) -> int:
+    def get_unified_score(self) -> float:
+        """Gets the score of the current """
         return self.unified_score
 
     def __lt__(self, other):
@@ -115,6 +125,21 @@ class BindingPair:
         return 'BindingPair(' + str(self.get_unified_score()) + ')'
 
 
+def as_binding_pair(binding_params: BindingPairParams, msa: MSA,
+                    target_name: str) -> BindingPair:
+    """Converts the given <binding_params> to a BindingPair"""
+    f_param = binding_params.f_params
+    r_param = binding_params.r_params
+
+    f_5p = f_param.get_5p_ind()
+    f_len = f_param.get_len()
+
+    r_5p = r_param.get_5p_ind()
+    r_len = r_param.get_len()
+
+    return BindingPair(msa, target_name, f_5p, r_5p, f_len, r_len)
+
+
 class PrimerPartsManager:
     """Manages the components to be incorporated into the final primers.
     Contains several methods that allow for the evaluation of dimerisation
@@ -131,14 +156,17 @@ class PrimerPartsManager:
     _binding_pair_pool: List[BindingPair]
     _msa_to_target: Dict[MSA, List[fmt.TargetRegionInfo]]
 
-    def __init__(self, target_to_fivep_seqs: List[fmt.AdapterPair],
+    def __init__(self, _fivep_seqs: List[fmt.AdapterPair],
                  msa_to_targets: Dict[MSA, List[fmt.TargetRegionInfo]]) -> None:
         """Initialises this class using the given parameters."""
         self._binding_pair_pool = []
-        self._fivep_seqs = deepcopy(target_to_fivep_seqs)
+        self._fivep_seqs = deepcopy(_fivep_seqs)
         self._msa_to_target = deepcopy(msa_to_targets)
 
-
+    def get_binding_pool_alias(self) -> List[BindingPair]:
+        """Returns a list of binding pairs that will continue to grow as more
+        binding pairs are found."""
+        return self._binding_pair_pool
 
     def add_bp(self, binding_pair: BindingPair) -> None:
         """Creates and returns a binding pair using the given attributes, as
@@ -158,6 +186,6 @@ class PrimerPartsManager:
         """Returns all the currently collected binding sequences 5' - 3'."""
         seqs = []
         for pair in self._binding_pair_pool:
-            seqs.append(pair.f_seq)
-            seqs.append(pair.r_seq)
+            seqs.append(pair.get_f_seq())
+            seqs.append(pair.get_r_seq())
         return tuple(seqs)

@@ -114,6 +114,7 @@ class BindingIteratorManager:
     t: str
 
     def __init__(self, msa_to_targets: Dict[MSA, List[TargetRegionInfo]],
+                 primer_pool: List[BindingPair],
                  primer_primer_distance: int, primer_target_distance: int,
                  target_region_len: InclRange, binding_region_len: InclRange,
                  ideal_binding_size: int) -> None:
@@ -133,6 +134,7 @@ class BindingIteratorManager:
                 num_targs += 1
 
         self.t = ''
+        self.primer_pool = primer_pool
         self.target_region_len = fmt.incl_to_range(target_region_len)
         self.primer_primer_dist = primer_primer_distance
         self.iterators = []
@@ -477,7 +479,7 @@ class BindingIteratorManager:
                            f_len: int,  r_len: int) -> range:
         """Converts target region to amplicon length."""
         adj = f_len + r_len
-        min_len = target.min_reverse_ind - target.min_forward_ind + 1
+        min_len = target.min_reverse_ind - target.max_forward_ind - 1
         min_len = max(min(self.target_region_len), min_len)
 
         return range(min_len + adj, max(self.target_region_len) + adj + 1)

@@ -22,8 +22,9 @@ root_log.info('\n   ====   Test Session Begins: ' + str(datetime.datetime.now())
 BIMinit = collections.namedtuple(
     'BIMinit',
     [
-        'msa_to_targets', 'primer_primer_distance', 'primer_target_distance',
-        'target_region_len', 'binding_region_len', 'ideal_binding_size'
+        'msa_to_targets',  'primer_pool', 'primer_primer_distance',
+        'primer_target_distance', 'target_region_len', 'binding_region_len',
+        'ideal_binding_size'
     ])
 
 
@@ -37,7 +38,7 @@ def basic_config() -> BIMinit:
     ideal_binding_size = 1
     target_1 = TargetRegionInfo('target_1', 'alex_test_align.fas',
                                 [200])
-    return BIMinit({alex_msa: [target_1]}, primer_primer_distance,
+    return BIMinit({alex_msa: [target_1]}, [], primer_primer_distance,
                    primer_target_distance, target_region_len,
                    binding_region_len, ideal_binding_size)
 
@@ -64,7 +65,7 @@ def complex_config() -> BIMinit:
     ideal_binding_size = 1
     target_1 = TargetRegionInfo('target_1', 'alex_test_align.fas',
                                 [200, 210])
-    return BIMinit({alex_msa: [target_1]}, primer_primer_distance,
+    return BIMinit({alex_msa: [target_1]}, [], primer_primer_distance,
                    primer_target_distance, target_region_len,
                    binding_region_len, ideal_binding_size)
 
@@ -94,7 +95,7 @@ def basic_overlap_config() -> BIMinit:
                                 [20, 21])
     target_2 = TargetRegionInfo('target_2', 'alex_test_align.fas',
                                 [24, 25])
-    return BIMinit({alex_msa: [target_1, target_2]}, primer_primer_distance,
+    return BIMinit({alex_msa: [target_1, target_2]}, [], primer_primer_distance,
                    primer_target_distance, target_region_len,
                    binding_region_len, ideal_binding_size)
 
@@ -126,9 +127,9 @@ def complex_overlap_config() -> BIMinit:
                                 [282])
 
     print(alex_msa.__len__())
-    return BIMinit(primer_primer_distance, primer_target_distance,
-                   target_region_len, binding_region_len, ideal_binding_size,
-                   {alex_msa: [target_1, target_2, target_3]})
+    return BIMinit({alex_msa: [target_1, target_2, target_3]}, [], 
+                   primer_primer_distance, primer_target_distance,
+                   target_region_len, binding_region_len, ideal_binding_size)
 
 
 def test_complex_overlap_BIM_functionality(complex_overlap_config) -> None:

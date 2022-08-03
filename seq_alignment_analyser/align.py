@@ -270,6 +270,24 @@ class MSA:
         """Returns the conservation at the given <base_ind>."""
         return self._conservation[:]
 
+    def get_primer_indices_array(self, five_p_ind: int, length: int,
+                                 rev: bool) -> range:
+        """Returns the indices corresponding to the positions on which the given
+        primer lies."""
+        if not rev:
+            return range(five_p_ind, five_p_ind + length)
+        else:
+            return range(five_p_ind, five_p_ind - length, -1)
+
+    def get_conservation_across(self, r: range) -> Tuple[float]:
+        """Returns the % conservation of bases across <r>."""
+        lst = []
+        for i in r:
+            lst.append(self._conservation[i])
+        return tuple(lst)
+
+
+
     def get_total_conservation(self, start: int, stop: int) -> float:
         """Returns the mean % conservation across the given region -
         [start, stop)."""
