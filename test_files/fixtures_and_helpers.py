@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import List, Tuple, TypeVar
 import random
+import logging
+import datetime
 from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import SpacerAlignmentGen
 from hetero_spacer_generator.primer_tools import MBPrimerBuilder
 from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
@@ -24,6 +26,16 @@ MED_SAMPLE_SIZE = 50
 SMALL_SAMPLE_SIZE = 10
 
 SMALL_SEQ_LEN = 2
+
+def configure_log_out(out_file_name: str) -> None:
+    """Configures a handler for a logging test session."""
+    handler = logging.FileHandler(TEST_OUTPUT_PATH /
+                                  (out_file_name + '.log'))
+    root_log = logging.getLogger('root')
+    root_log.addHandler(handler)
+    root_log.setLevel(10)
+    root_log.info('\n   ====   Test Session Begins: ' + str(datetime.datetime.now())
+                  + '   ====')
 
 
 def get_msa(filename: str) -> MSA:

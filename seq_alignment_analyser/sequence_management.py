@@ -55,8 +55,8 @@ class BindingPair:
     r_len: The length of the reverse primer.
 
     # Scoring
-    unified_score: The score of this primer set as calculated by an external
-    scorer.
+    conservation_score: The Conservation score of this primer set as calculated by an
+    external scorer.
     """
     msa: MSA
     target_name: str
@@ -69,6 +69,9 @@ class BindingPair:
 
     f_len: int
     r_len: int
+
+    _conservation_score: float
+    _dimer_score: float
 
     unified_score: float
 
@@ -105,6 +108,20 @@ class BindingPair:
     def get_unified_score(self) -> float:
         """Gets the score of the current """
         return self.unified_score
+
+    def set_conservation_score(self, conservation_score: float) -> None:
+        self._conservation_score = conservation_score
+
+    def get_conservation_score(self) -> float:
+        """Gets the score of the current """
+        return self._conservation_score
+
+    def set_dimer_score(self, dimer_score: float) -> None:
+        self._dimer_score = dimer_score
+
+    def get_dimer_score(self) -> float:
+        """Gets the score of the current """
+        return self._dimer_score
 
     def __lt__(self, other):
         return self.get_unified_score() < other.get_unified_score()

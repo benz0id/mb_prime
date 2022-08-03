@@ -692,6 +692,10 @@ class HeteroSeqIterator(BindingSeqIterator):
                       f_allowed_len, r_allowed_len, allowed_amp_len,
                       self.target_name)
 
+    def get_lengths(self) -> Tuple[List[int], List[int]]:
+        """Returns the lengths over which this class iterates."""
+        return self._f_allowed_len, self._r_allowed_len
+
     def get_forward_reverse_bound(self) -> Tuple[range, range]:
         """Returns a range representation of this classes binding region
         ranges. """

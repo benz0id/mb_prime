@@ -18,6 +18,11 @@ from seq_alignment_analyser.sequence_management import PrimerPartsManager, \
 
 log = logging.getLogger('root')
 
+# What percent of binding sequences must be within melting temp range.
+
+RETRY_PERCENT = 25
+ADJ_LEN_INCR = 1
+
 def get_prog_iter(ran: range, do_progbar: bool) -> Union[tqdm.std.tqdm, range]:
     """Returns an iterator over the given range. Displays an error bar iif
     <do_progbar>."""
@@ -50,8 +55,11 @@ class FindBindingPairs:
 
     _bp_heap: Max heap that sorts binding pairs based on their unified scores.
 
-    _num_mt_high: The number of binding sequences with melting temperatures too
-    _num_mt_low:  low or high to be considered during any given iteration.
+    _num_f_mt_high: The number of binding sequences with melting temperatures too
+    _num_f_mt_low:  low or high to be considered during any given iteration. (F)
+
+    _num_r_mt_high: The number of binding sequences with melting temperatures too
+    _num_r_mt_low:  low or high to be considered during any given iteration. (R)
 
     _num_no_gc:   The number of binding pairs with one or more of their binding
         sequences lacking a GC clamp.
@@ -73,8 +81,10 @@ class FindBindingPairs:
 
     _bp_heap: List[BindingPair]
 
-    _num_mt_high: int
-    _num_mt_low: int
+    _num_f_mt_high: int
+    _num_f_mt_low: int
+    _num_r_mt_high: int
+    _num_r_mt_low: int
 
     _num_no_gc: int
 
@@ -130,15 +140,36 @@ class FindBindingPairs:
     def update_mt_counters(self, f_seq: str, r_seq: str) -> bool:
         """Updates the melting temp counters. Returns whether the given pair of
         sequences is in range of the other melting temps."""
-        self._total_bps += 1
-        match self._scorer.is_in_mt_range_seqs(f_seq, r_seq):
-            case 'h':
-                self._num_mt_high += 1
-            case 'y':
-                return True
-            case 'l':
-                self._num_mt_low += 1
+        # Unpack melting temp attributes.
+        in_mt_range, f_high, f_low, r_high, r_low = \
+            self._scorer.is_in_mt_range_seqs(f_seq, r_seq)
+
+        if in_mt_range:
+            return True
+
+        # Update counters and return false in case of error.
+        self._num_f_mt_high += f_high
+        self._num_f_mt_low += f_low
+        self._num_r_mt_high += r_high
+        self._num_r_mt_low += r_low
+
         return False
+
+    def too_many_missed(self) -> bool:
+        """Returns whether a significant number of primer pairs were missed due
+        to the produced melting temps being too high or low."""
+
+        missed_f = self._num_f_mt_high - self._num_f_mt_low
+        if abs(missed_f) / self._total_bps * 100 > RETRY_PERCENT:
+            return True
+
+        missed_r = self._num_r_mt_high - self._num_r_mt_low
+        if abs(missed_r) / self._total_bps * 100 > RETRY_PERCENT:
+            return True
+
+        return False
+
+
 
     def store_if_high_conservation(self, param: BindingPairParams, n: int) \
         -> None:
@@ -151,19 +182,63 @@ class FindBindingPairs:
             binding_pair)
         avg_cons = (for_cons + rev_cons) / 2
 
-        # Average of forward and reverse conservation scores.
-        binding_pair.set_unified_score(avg_cons)
-
         # If empty heap or better than worst score.
         add_to_heap = len(self._bp_heap) == 0 or \
             self._bp_heap[0].get_unified_score() < avg_cons
 
         if add_to_heap:
+            binding_pair.set_unified_score(avg_cons)
+            binding_pair.set_conservation_score(avg_cons)
             heapq.heappush(self._bp_heap, binding_pair)
 
         # Pop if over size limit.
         if len(self._bp_heap) > n:
             heapq.heappop(self._bp_heap)
+
+    def _adjust_iterator(self, iterator: HeteroSeqIterator) \
+            -> None:
+        """Adjusts the iterator to include binding sequences closer to the
+        target melting temp."""
+        adj_f = False
+        f_high = False
+
+        adj_r = False
+        r_high = False
+
+        cur_f_len, cur_r_len = self._iterator_manager.\
+            get_iterator_primer_size(iterator)
+
+        missed_f = self._num_f_mt_high - self._num_f_mt_low
+        if abs(missed_f) / self._total_bps * 100 > RETRY_PERCENT:
+            adj_f = True
+            f_high = missed_f > 0
+
+        missed_r = self._num_r_mt_high - self._num_r_mt_low
+        if abs(missed_r) / self._total_bps * 100 > RETRY_PERCENT:
+            adj_r = True
+            r_high = missed_f > 0
+
+        def get_change(do_change: bool, do_decrease: bool) -> int:
+            if not do_change:
+                return 0
+
+            direction = (-1, 1)[do_decrease]
+            return direction * ADJ_LEN_INCR
+
+        f_len = cur_f_len + get_change(adj_f, f_high)
+        r_len = cur_r_len + get_change(adj_r, r_high)
+
+        self._iterator_manager.update_iterator_primer_size(iterator, f_len,
+                                                           r_len)
+
+        log.info(''.join(
+            [
+                'Retrying run with modified lengths.\n',
+                '\tf_len: ', str(cur_f_len), ' -> ', str(f_len), '\n',
+                '\tr_len: ', str(cur_r_len), ' -> ', str(r_len),
+
+            ]
+        ))
 
     def get_n_most_conserved_valid(self, n: int, iterator: HeteroSeqIterator) \
             -> None:
@@ -180,8 +255,12 @@ class FindBindingPairs:
 
         # Initialise iteration attributes.
         self._bp_heap = []
-        self._num_mt_high = 0
-        self._num_mt_low = 0
+        self._cur_msa = self._iterator_manager.find_msa(iterator.target_name)
+        self._cur_target = iterator.target_name
+        self._num_f_mt_high = 0
+        self._num_f_mt_low = 0
+        self._num_r_mt_high = 0
+        self._num_r_mt_low = 0
         self._num_no_gc = 0
         self._total_bps = 0
 
@@ -192,6 +271,7 @@ class FindBindingPairs:
                   iterator.target_name + '.')
         for _ in get_prog_iter(range(num_to_iter), self._show_prog_bar):
             f_seq, r_seq = iterator.__next__()
+            self._total_bps += 1
 
             # Is the melting temp is range of the other seqs?
             if not self.update_mt_counters(f_seq, r_seq):
@@ -205,6 +285,13 @@ class FindBindingPairs:
             param = iterator.get_last_param()
             self.store_if_high_conservation(param, n)
 
+        try:
+            iterator.__next__()
+        except StopIteration:
+            pass
+        else:
+            assert False
+
         cons_scores = [bp.get_unified_score() for bp in self._bp_heap]
         avg_con_score = sum(cons_scores) / len(cons_scores)
         max_cons_score = max(cons_scores)
@@ -214,9 +301,15 @@ class FindBindingPairs:
                 'Run Info: \n',
                 '\tTotal Number of Binding Pairs Evaluated: ',
                 str(self._total_bps), '\n',
-                '\tNumber With too High a Tm:        ', str(self._num_mt_high), '\n',
-                '\tNumber With too Low a Tm:         ', str(self._num_mt_low), '\n',
-                '\tNumber With Good Tm no GC Clamp:  ', str(self._num_no_gc),
+                '\tNum Forward With too High a Tm:  ', str(self._num_f_mt_high),
+                '\n',
+                '\tNum Forward With too Low a Tm:   ', str(self._num_f_mt_low),
+                '\n',
+                '\tNum Reverse With too High a Tm:  ', str(self._num_r_mt_high),
+                '\n',
+                '\tNum Reverse With too Low a Tm:   ', str(self._num_r_mt_low),
+                '\n',
+                '\tNumber With Good Tm no GC Clamp: ', str(self._num_no_gc),
                 '\n',
                 '\tAverage Conservation Amoung ', str(n), ' Best: ',
                 str(avg_con_score), '\n',
@@ -227,6 +320,18 @@ class FindBindingPairs:
             ]
             )
         )
+
+        # See whether a significant number of binding pairs were missed as a
+        # consequence of melting temp
+        if self.too_many_missed():
+            self._adjust_iterator(iterator)
+            self.get_n_most_conserved_valid(n, iterator)
+
+            
+
+
+
+
 
 
 

@@ -357,6 +357,12 @@ class BindingIteratorManager:
 
         self._lid()
 
+    def get_iterator_primer_size(self, iterator: HeteroSeqIterator) -> \
+            Tuple[int, int]:
+        """Updates the given iterators primer size bounds."""
+        f_lens, r_lens = iterator.get_lengths()
+        return f_lens[0], r_lens[0]
+
     def update_iterator_primer_size(self, iterator: HeteroSeqIterator,
                                     f_len: int, r_len: int) -> None:
         """Updates the given iterators primer size bounds."""
@@ -367,7 +373,9 @@ class BindingIteratorManager:
     def find_msa(self, target_name: str) -> MSA:
         """Given a <target_name>, returns that target's MSA."""
         for msa in self.msa_to_target_indices.keys():
-            if target_name in self.msa_to_target_indices[msa]:
+            target_names = [targ.name
+                            for targ in self.msa_to_target_indices[msa]]
+            if target_name in target_names:
                 return msa
         raise ValueError('Target not on any alignment.')
 
@@ -510,7 +518,7 @@ class BindingIteratorManager:
                 iterator = HeteroSeqIterator(
                     msa.get_consensus(), f_5p_inds, r_5p_inds,
                     [ideal_binding_size], [ideal_binding_size],
-                    allowed_amp_lens)
+                    allowed_amp_lens, target_name=target.name)
 
                 self.iterators.append(iterator)
 

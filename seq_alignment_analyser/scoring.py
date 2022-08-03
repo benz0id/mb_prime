@@ -37,10 +37,10 @@ class ScoreBindingPair:
         self._targ_mt = targ_mt
         self._max_mt_deviance = max_mt_deviance
 
-        self._melting_temps = []
+        self._melting_temps = [targ_mt]
 
         self._weight_dis_map = {}
-        for i in range(101):
+        for i in range(1, 101):
             self._weight_dis_map[i] = \
                 self.get_conservation_weight_distribution(i)
 
@@ -124,38 +124,93 @@ class ScoreBindingPair:
         bp.f_mt = calcTm(bp.get_f_seq())
         bp.r_mt = calcTm(bp.get_r_seq())
 
-    def get_mt_deviance(self, f_seq: str, r_seq: str) -> float:
+    def get_pair_deviance(self, f_seq: str, r_seq: str) \
+            -> Tuple[float, float, float]:
         """Gets the maximal deviance from the melting temps among the already
         selected primers."""
-        f_mt = primer3.calcTm(f_seq)
-        r_mt = primer3.calcTm(r_seq)
+
+        f_dev = self.get_mt_deviance(f_seq)
+        r_dev = self.get_mt_deviance(r_seq)
+
+        pair_dev = abs(primer3.calcTm(f_seq) - primer3.calcTm(r_seq))
+
+        return f_dev, r_dev, pair_dev
+
+    def get_mt_deviance(self, seq: str) -> float:
+        """Gets the maximal deviance from the melting temps among the already
+        selected primers."""
+        r_mt = primer3.calcTm(seq)
 
         # Get maximum deviance.
         max_dev = 0
         for temp in self._melting_temps:
-            delta_mt = max([temp - r_mt, temp - f_mt], key=abs)
+            delta_mt = temp - r_mt
             if abs(delta_mt) > abs(max_dev):
                 max_dev = delta_mt
 
-        delta_mt = r_mt - f_mt
-        if abs(delta_mt) > abs(max_dev):
-            max_dev = delta_mt
-
         return max_dev
 
-    def is_in_mt_range_seqs(self, f_seq: str, r_seq: str) -> str:
+    def is_in_mt_range_seqs(self, f_seq: str, r_seq: str) -> \
+            Tuple[bool, bool, bool, bool, bool]:
         """Returns whether <bp> has a melting temp compatible with the already
-        selected binding pairs. Where:
-         'y' -> Compatible melting temp.
-         'h' -> Melting temp too high.
-         'l' -> Melting temp too low. """
-        max_dev = self.get_mt_deviance(f_seq, r_seq)
-        if abs(max_dev) <= self._max_mt_deviance:
-            return 'y'
-        elif max_dev > 0:
-            return 'l'
-        else:
-            return 'h'
+        selected binding pairs. Returns a tuple of booleans containing
+        information regarding the melting temps of the pair.
+
+        Attributes stored in tuple in the following order:
+        in_mt_range, f_high, f_low, r_high, r_low
+        in_mt_range     : Are there melting temp conflicts?
+        f_high          : Is the forward seq melting temp higher than avg?
+        f_low           : Is the forward seq melting temp lower than avg?
+        r_high          : Is the reverse seq melting temp higher than avg?
+        r_low           : Is the reverse seq melting temp lower than avg?
+
+        Only the •problem causing* attributes will be true.
+        """
+        f_dev, r_dev, pair_dev = self.get_pair_deviance(f_seq, r_seq)
+
+        in_mt_range = False
+        f_high = False
+        f_low = False
+        r_high = False
+        r_low = False
+
+        def get_tuple() -> Tuple[bool, bool, bool, bool, bool]:
+            return in_mt_range, f_high, f_low, r_high, r_low
+
+        def all_lt(iterable, threshold) -> bool:
+            for val in iterable:
+                if abs(val) > threshold:
+                    return False
+            return True
+
+        if all_lt((f_dev, r_dev, pair_dev), self._max_mt_deviance):
+            in_mt_range = True
+            return get_tuple()
+
+        if abs(f_dev) > self._max_mt_deviance:
+            if f_dev > 0:
+                f_high = True
+            else:
+                f_low = True
+
+        if abs(r_dev) > self._max_mt_deviance:
+            if r_dev > 0:
+                r_high = True
+            else:
+                r_low = True
+
+        if pair_dev > f_dev and pair_dev > r_dev and \
+                pair_dev > self._max_mt_deviance:
+            if f_dev > r_dev:
+                f_high = True
+                r_low = True
+            else:
+                f_low = True
+                r_high = True
+
+        return get_tuple()
+
+
 
     def is_in_mt_range(self, bp: BindingPair) -> str:
         """Returns whether <bp> has a melting temp compatible with the already
