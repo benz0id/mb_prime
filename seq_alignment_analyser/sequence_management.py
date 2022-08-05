@@ -3,7 +3,7 @@ from typing import Dict, List, Tuple
 
 from seq_alignment_analyser.align import MSA
 import config_handling.formatting as fmt
-from seq_alignment_analyser.best_primers import BindingPairParams
+from seq_alignment_analyser.best_primers import BindingPairParams, reverse_inds
 
 
 def comp(seq: str) -> str:
@@ -92,6 +92,8 @@ class BindingPair:
         self.r_len = r_len
 
         self.unified_score = 0
+        self._conservation_score = -1
+        self._dimer_score = 12345678910
 
     def get_f_seq(self) -> str:
         """Returns the sequence of the forward binding seqeunce 5'-3'."""
@@ -139,7 +141,18 @@ class BindingPair:
         return other.get_unified_score() == self.get_unified_score()
     
     def __repr__(self):
-        return 'BindingPair(' + str(self.get_unified_score()) + ')'
+        return ''.join(
+            [
+                'BindingPair(',
+                'conservation_score=', str(self._conservation_score), ', ',
+                'dimer_score=', str(self._dimer_score), ', ',
+                'f_seq=', self.get_f_seq(), ', ',
+                'r_seq=', self.get_r_seq(), ', ',
+                'f_5p=', str(self.f_5p), ', ',
+                'r_5p=', str(self.r_5p),
+                ')'
+            ]
+        )
 
 
 def as_binding_pair(binding_params: BindingPairParams, msa: MSA,
@@ -151,7 +164,7 @@ def as_binding_pair(binding_params: BindingPairParams, msa: MSA,
     f_5p = f_param.get_5p_ind()
     f_len = f_param.get_len()
 
-    r_5p = r_param.get_5p_ind()
+    r_5p = reverse_inds([r_param.get_5p_ind()], len(msa))[0]
     r_len = r_param.get_len()
 
     return BindingPair(msa, target_name, f_5p, r_5p, f_len, r_len)

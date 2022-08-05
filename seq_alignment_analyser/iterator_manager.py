@@ -19,6 +19,15 @@ TargetIndecies = collections.namedtuple(
         'designated_start', 'designated_end', 'overlap_ignore'
     ])
 
+# Find binding pair modes.
+RESTRICTED = 'len_restricted'
+OPEN = 'len_open'
+
+
+def list_to_range(lst: List[int]) -> range:
+    """Converts the continuous series of integers stored in lst to a range."""
+    return range(min(lst), max(lst) + 1)
+
 
 def overlap(start1: int, stop1: int, start2: int, stop2: int,
             allowable: int = 0) -> bool:
@@ -97,6 +106,8 @@ class BindingIteratorManager:
         it.
 
     primer_primer_dist: Min distance between any two primers.
+
+    max_binding_target_len: Max total length of the binding and target region.
     """
 
     primer_pool: List[BindingPair]
@@ -109,15 +120,22 @@ class BindingIteratorManager:
 
     target_region_len: range
 
+    binding_region_len: range
+
+    max_binding_target_len: int
+
     primer_primer_dist: int
 
     t: str
 
+    all_lens: bool
+
     def __init__(self, msa_to_targets: Dict[MSA, List[TargetRegionInfo]],
-                 primer_pool: List[BindingPair],
+                 primer_pool: List[BindingPair], mode: str,
                  primer_primer_distance: int, primer_target_distance: int,
                  target_region_len: InclRange, binding_region_len: InclRange,
-                 ideal_binding_size: int) -> None:
+                 ideal_binding_size: int, max_binding_target_len: int,) \
+            -> None:
         """Initialises all iterators 'maximally' i.e. They can select from any
         possible pair that would leave every other target with a valid pair.
 
@@ -128,15 +146,23 @@ class BindingIteratorManager:
         binding_region_len: the allowable range of lengths for a binding region.
         targets: all of the targets that lie on each MSA.
         """
+
+        if mode == RESTRICTED:
+            self.all_lens = False
+        else:
+            self.all_lens = True
+
         num_targs = 0
         for msa in msa_to_targets.keys():
             for _ in msa_to_targets[msa]:
                 num_targs += 1
 
         self.t = ''
+        self.binding_region_len = fmt.incl_to_range(binding_region_len)
         self.primer_pool = primer_pool
         self.target_region_len = fmt.incl_to_range(target_region_len)
         self.primer_primer_dist = primer_primer_distance
+        self.max_binding_target_len = max_binding_target_len
         self.iterators = []
         self.iterator_queue = collections.deque()
         self.msa_to_target_indices = {}
@@ -158,9 +184,25 @@ class BindingIteratorManager:
 
     def __next__(self) -> HeteroSeqIterator:
         """Returns the next HeteroSeqIterator."""
-        next_iterator = self.iterator_queue.popleft()
-        self._update_iterator_bounds(next_iterator)
+        try:
+            next_iterator = self.iterator_queue.popleft()
+            self._update_iterator_bounds(next_iterator)
+        except IndexError:
+            raise StopIteration
+        if self.all_lens:
+            self.max_lens(next_iterator)
         return next_iterator
+
+    def __iter__(self):
+        return self
+
+    def max_lens(self, iterator: HeteroSeqIterator) -> None:
+        """Converts the iterator to iterate over all lengths simultaneously. May
+        result in the loss of some primers close to the alignments."""
+        max_len = max(self.binding_region_len)
+        self.update_iterator_primer_size(iterator, max_len, max_len)
+        iterator.new_lens(self.binding_region_len, self.binding_region_len,
+                          *iterator.get_5ps(), iterator.get_amp_lengths())
 
     def _lip(self) -> None:
         """Increases the log's indentation level by one."""
@@ -198,8 +240,10 @@ class BindingIteratorManager:
 
             r_binding_max = f_binding_max + target_region_len.stop + \
                             2 * binding_region_len.stop
+            r_binding_max = min(r_binding_max, len(msa))
             f_binding_min = r_binding_min - target_region_len.stop - \
                             2 * binding_region_len.stop
+            f_binding_min = max(f_binding_min, 0)
 
             # The minimal region required for this to be a valid target.
             minimal_start = f_binding_max - binding_region_len.stop + 1
@@ -306,7 +350,7 @@ class BindingIteratorManager:
         iterator_target = self.find_target(iterator.target_name)
         iterator_msa = self.find_msa(iterator.target_name)
 
-        for primer_set in self.primer_pool:
+        for num, primer_set in enumerate(self.primer_pool):
             primer_set_target = self.find_target(primer_set.target_name)
             primer_set_msa = self.find_msa(primer_set_target.name)
 
@@ -320,40 +364,66 @@ class BindingIteratorManager:
                 continue
 
             # Extract region used by this primer.
-            designated_lower = min(0, primer_set.f_5p - self.primer_primer_dist)
-            designated_upper = primer_set.r_5p + self.primer_primer_dist
+            set_start = max(0, primer_set.f_5p - self.primer_primer_dist)
+            set_end = min(primer_set.r_5p + self.primer_primer_dist,
+                                   len(primer_set_msa))
 
             # Extract region used by iterator.
-            iterator_lower, iterator_upper = \
+            iterator_lower_initial, iterator_upper_initial = \
                 iterator.get_forward_reverse_bound()
 
+            iter_start = min(iterator_lower_initial)
+            iter_end = max(iterator_upper_initial)
+
             # Is there a conflict?
-            upper_bound_conflict = designated_lower < max(iterator_upper)
-            lower_bound_conflict = min(iterator_lower) < designated_upper
-            if not (upper_bound_conflict or lower_bound_conflict):
+            if not (overlap(iter_start, iter_end, set_start, set_end)):
                 continue
 
-            new_upper = min(max(iterator_upper), designated_lower - 1)
-            new_iterator_upper = range(min(iterator_upper), new_upper + 1)
+            # Remove overlapping bases from iterator.
+            set_designated = range(set_start, set_end + 1)
+            iterator_lower, iterator_upper = list(iterator_lower_initial), \
+                                             list(iterator_upper_initial)
+            to_pop = []
+            for i, ind in enumerate(iterator_lower):
+                if ind in set_designated:
+                    to_pop.append(i)
+            for ind in sorted(to_pop)[::-1]:
+                iterator_lower.pop(ind)
+            to_pop = []
+            for i, ind in enumerate(iterator_upper):
+                if ind in set_designated:
+                    to_pop.append(i)
+            for ind in sorted(to_pop)[::-1]:
+                iterator_upper.pop(ind)
 
-            new_lower = max(min(iterator_lower), designated_upper + 1)
-            new_iterator_lower = range(new_lower, max(iterator_lower) + 1)
+            new_iter_lower = list_to_range(iterator_lower)
+            new_iter_upper = list_to_range(iterator_upper)
 
             log.info(''.join(
                 [
                     self.t, 'Found a conflict: ', primer_set_target.name, '(',
-                    str(designated_lower), ', ', str(designated_upper), ').',
-                    self.t, 'Adjusting bounds: ', str(iterator_lower), ', ',
-                    str(iterator_upper), '  --->   ', str(new_iterator_lower),
-                    ', ', str(new_iterator_upper)
+                    str(set_start), ', ', str(set_end), ').\n',
+                    self.t, 'Adjusting bounds: ', str(iterator_lower_initial),
+                    ', ', str(iterator_upper_initial), '  --->  ',
+                    str(new_iter_lower), ', ', str(new_iter_upper)
                 ]
             ))
 
-            if len(new_iterator_upper) == 0 or len(new_iterator_lower) == 0:
+            if len(new_iter_lower) == 0 or len(new_iter_upper) == 0:
                 log.critical('Available space for primers reduced to 0 for this'
                              ' iterator.')
                 raise RuntimeError('Produced iterator that does not have '
                                    'sufficient space.')
+
+            iterator.new_lens(*iterator.get_lengths(), new_iter_lower,
+                              new_iter_upper, iterator.get_amp_lengths())
+
+
+        log.info(
+            ''.join([
+                self.t, 'Rectified iterator: ', repr(iterator)
+            ])
+        )
 
         self._lid()
 
@@ -368,7 +438,44 @@ class BindingIteratorManager:
         """Updates the given iterators primer size bounds."""
         it_targ = self.find_target(iterator.target_name)
         allowable_amp_sizes = self._get_amplicon_size(it_targ, f_len, r_len)
-        iterator.new_lens([f_len], [r_len], allowable_amp_sizes)
+
+        f_old, r_old = iterator.get_lengths()
+
+        f_delta = f_len - f_old[0]
+        r_delta = r_len - r_old[0]
+
+        f_5ps, r_5ps = iterator.get_5ps()
+        f_5ps, r_5ps = list(f_5ps), list(r_5ps)
+
+        if f_delta == 0:
+            pass
+        # Increase in binding sequence length, decrease binding range to avoid
+        # binding sequence infringing on target region.
+        elif f_delta > 0:
+            for _ in range(f_delta):
+                f_5ps.pop()
+        # Decrease in binding sequence length, do the opposite.
+        else:
+            for _ in range(abs(f_delta)):
+                f_5ps.append(f_5ps[-1] + 1)
+
+        if r_delta == 0:
+            pass
+        elif r_delta > 0:
+            for _ in range(r_delta):
+                r_5ps.pop(0)
+        else:
+            for _ in range(abs(r_delta)):
+                r_5ps.insert(0, r_5ps[0] - 1)
+
+        iterator.new_lens([f_len], [r_len], list_to_range(f_5ps),
+                          list_to_range(r_5ps), allowable_amp_sizes)
+
+        log.info(''.join(
+            [
+                self.t, 'Rectified iterator: ', repr(iterator)
+            ]
+        ))
 
     def find_msa(self, target_name: str) -> MSA:
         """Given a <target_name>, returns that target's MSA."""
@@ -483,14 +590,17 @@ class BindingIteratorManager:
         self._lid()
         return forward_range, reverse_range
 
-    def _get_amplicon_size(self, target:TargetIndecies,
+    def _get_amplicon_size(self, target: TargetIndecies,
                            f_len: int,  r_len: int) -> range:
         """Converts target region to amplicon length."""
         adj = f_len + r_len
         min_len = target.min_reverse_ind - target.max_forward_ind - 1
         min_len = max(min(self.target_region_len), min_len)
 
-        return range(min_len + adj, max(self.target_region_len) + adj + 1)
+        max_len = min(max(self.target_region_len) + adj + 1,
+                      self.max_binding_target_len)
+
+        return range(min_len + adj, max_len)
 
     def _construct_iterators(self, ideal_binding_size: int) -> None:
         """Constructs iterators to iterate over all primer matching the given

@@ -183,7 +183,8 @@ class BindingParams(Param):
         return self._5p_ind == other.get_5p_ind() and \
                self._len == other.get_len()
 
-def get_region(param: BindingParams, rev: bool = False, dir: str = 'f') -> str:
+def get_region(param: BindingParams, rev: bool = False, dir: str = 'f') \
+        -> Tuple[int, ...]:
     """Extracts the given binding param from the consensus."""
     rang = [param.get_5p_ind(),
             param.get_5p_ind() + param.get_len() - 1]
@@ -641,6 +642,7 @@ class HeteroSeqIterator(BindingSeqIterator):
     _for_iter: HomoSeqIterator
     _rev_iter: HomoSeqIterator
     _cur_for: str
+    num: int
 
     def __init__(self, consensus: Union[Seq, str], f_allowed_5p: AllowableInts,
                  r_allowed_5p: AllowableInts, f_allowed_len: AllowableInts,
@@ -655,6 +657,7 @@ class HeteroSeqIterator(BindingSeqIterator):
             min(allowed_amp_length) > max(r_allowed_len) + max(f_allowed_len)
             """
         self.target_name = target_name
+        self.num = 0
 
         consensus_cpy = Seq(str(consensus[:]))
         self._rc_consensus = str(consensus_cpy.reverse_complement())
@@ -674,8 +677,6 @@ class HeteroSeqIterator(BindingSeqIterator):
                                          f_allowed_len)
         self._update_homo_iterators()
 
-    num = 0
-
     def new_bounds(self, f_allowed_5p: AllowableInts,
                    r_allowed_5p: AllowableInts, f_allowed_len: AllowableInts,
                    r_allowed_len: AllowableInts) -> None:
@@ -685,22 +686,30 @@ class HeteroSeqIterator(BindingSeqIterator):
                       self.target_name)
 
     def new_lens(self, f_allowed_len: AllowableInts,
-                 r_allowed_len: AllowableInts, allowed_amp_len: AllowableInts
+                 r_allowed_len: AllowableInts, f_allowed_5p: AllowableInts,
+                 r_allowed_5p: AllowableInts, allowed_amp_len: AllowableInts
                  ) -> None:
         """Sets new bounds for this iterator."""
-        self.__init__(self._consensus, self._f_allowed_5p, self._r_allowed_5p,
+        self.__init__(self._consensus, f_allowed_5p, r_allowed_5p,
                       f_allowed_len, r_allowed_len, allowed_amp_len,
                       self.target_name)
+
+    def get_amp_lengths(self):
+        return self._allowed_amp_len
 
     def get_lengths(self) -> Tuple[List[int], List[int]]:
         """Returns the lengths over which this class iterates."""
         return self._f_allowed_len, self._r_allowed_len
 
+    def get_5ps(self) -> Tuple[List[int], List[int]]:
+        """Returns the 5p bounds over which this class iterates (ALIASING)."""
+        return self._f_allowed_5p, self._r_allowed_5p
+
     def get_forward_reverse_bound(self) -> Tuple[range, range]:
         """Returns a range representation of this classes binding region
         ranges. """
-        f_5p = range(min(self._f_allowed_5p), max(self._f_allowed_len) + 1)
-        r_5p = range(min(self._r_allowed_5p), max(self._r_allowed_len) + 1)
+        f_5p = range(min(self._f_allowed_5p), max(self._f_allowed_5p) + 1)
+        r_5p = range(min(self._r_allowed_5p), max(self._r_allowed_5p) + 1)
         return f_5p, r_5p
 
     def __next__(self) -> Tuple[str, str]:
@@ -721,6 +730,7 @@ class HeteroSeqIterator(BindingSeqIterator):
             self._update_homo_iterators()
             if self._cur_for == '':
                 # We're out of potential forward binding seqs.
+                assert self.get_num_pos_primers() + 1 == self.num
                 raise StopIteration
             try:
                 cur_rev = self._rev_iter.__next__()
@@ -747,7 +757,7 @@ class HeteroSeqIterator(BindingSeqIterator):
         num = 0
         for fivep in self._f_allowed_5p:
             num += len(self._get_allowed_rev_5p(fivep))
-        return num
+        return num * len(self._r_allowed_len) * len(self._r_allowed_len)
 
     def _update_homo_iterators(self) -> None:
         """To be called when the reverse iterator runs out of valid binding

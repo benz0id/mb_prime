@@ -2,11 +2,14 @@ from typing import List, Tuple
 
 import primer3
 from primer3 import calcTm, calcHeterodimer
-
+from math import ceil
+from statistics import mean
 from .align import MSA
 from .sequence_management import BindingPair, PrimerPartsManager
 
 GC_ZONE_SIZE = 2
+NUM_TO_COLLECT = 1/4
+
 
 class ScoreBindingPair:
     """Responsible for generating unified scores that capture the features of
@@ -16,8 +19,6 @@ class ScoreBindingPair:
 
     _melting_temps: The melting temperatures of all binding sequences included
         so far.
-
-    _av_mt: Average melting temp amoung selected primers.
 
     _targ_mt: The target melting temp specified by the user.
 
@@ -47,8 +48,8 @@ class ScoreBindingPair:
     def add_bp(self, bp: BindingPair) -> None:
         """Adds the given binding pair to this classes list of considered
         binding pairs."""
-        self._melting_temps.append(bp.f_mt)
-        self._melting_temps.append(bp.r_mt)
+        self._melting_temps.append(primer3.calcTm(bp.get_f_seq()))
+        self._melting_temps.append(primer3.calcTm(bp.get_r_seq()))
 
     def get_conservation_weight_distribution(self, len: int):
         """Returns the weight array for a sequence of <len>."""
@@ -119,11 +120,6 @@ class ScoreBindingPair:
 
         return total_cons / (bp.f_len + bp.r_len)
 
-    def set_mts(self, bp: BindingPair) -> None:
-        """Gets and stores the mating temps of the given <bp>"""
-        bp.f_mt = calcTm(bp.get_f_seq())
-        bp.r_mt = calcTm(bp.get_r_seq())
-
     def get_pair_deviance(self, f_seq: str, r_seq: str) \
             -> Tuple[float, float, float]:
         """Gets the maximal deviance from the melting temps among the already
@@ -144,7 +140,7 @@ class ScoreBindingPair:
         # Get maximum deviance.
         max_dev = 0
         for temp in self._melting_temps:
-            delta_mt = temp - r_mt
+            delta_mt = r_mt - temp
             if abs(delta_mt) > abs(max_dev):
                 max_dev = delta_mt
 
@@ -187,18 +183,21 @@ class ScoreBindingPair:
             in_mt_range = True
             return get_tuple()
 
+        # Is the forward sequence overly deviant?
         if abs(f_dev) > self._max_mt_deviance:
             if f_dev > 0:
                 f_high = True
             else:
                 f_low = True
 
+        # Is the reverse sequence overly deviant?
         if abs(r_dev) > self._max_mt_deviance:
             if r_dev > 0:
                 r_high = True
             else:
                 r_low = True
 
+        # Are the pair together overly deviant?
         if pair_dev > f_dev and pair_dev > r_dev and \
                 pair_dev > self._max_mt_deviance:
             if f_dev > r_dev:
@@ -210,21 +209,19 @@ class ScoreBindingPair:
 
         return get_tuple()
 
+    def get_worst_dgs_average(self, bp: BindingPair) -> float:
+        """Calculates the average free energy among the worst structures formed
+        by this binding pair."""
+        bps_dgs = self.get_bp_dgs(bp)
+        five_p_dgs = self.get_5p_seqs_dgs(bp)
 
+        all_structures = bps_dgs + five_p_dgs
 
-    def is_in_mt_range(self, bp: BindingPair) -> str:
-        """Returns whether <bp> has a melting temp compatible with the already
-        selected binding pairs. Where:
-         'y' -> Compatible melting temp.
-         'h' -> Melting temp too high.
-         'l' -> Melting temp too low. """
-        max_dev = self.get_mt_deviance(bp.get_f_seq(), bp.get_r_seq())
-        if abs(max_dev) <= self._max_mt_deviance:
-            return 'y'
-        elif max_dev > 0:
-            return 'l'
-        else:
-            return 'h'
+        num_structs = len(all_structures)
+        num_worst = ceil(num_structs * NUM_TO_COLLECT)
+
+        worst = sorted(all_structures)[:num_worst]
+        return mean(worst)
 
     def get_bp_dgs(self, bp: BindingPair) -> List[float]:
         """Returns a list containing the delta g's of formation with all other
@@ -260,10 +257,6 @@ class ScoreBindingPair:
         r_gc = 'G' in r_gc_zone or 'C' in r_gc_zone
 
         return f_gc and r_gc
-
-def set_unified_score(self, bp: BindingPair):
-        """Sets the unified score, which is a combination of all of <bp>'s
-        primer properties."""
 
 
 

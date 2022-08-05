@@ -1,4 +1,5 @@
 import collections
+import random
 from typing import Any
 import logging
 import pytest as pt
@@ -16,7 +17,7 @@ root_log.setLevel(10)
 root_log.info('\n   ====   Test Session Begins: ' + str(datetime.datetime.now())
               + '   ====')
 
-
+N = 10000
 
 
 BIMinit = collections.namedtuple(
@@ -147,7 +148,38 @@ def test_complex_overlap_BIM_functionality(complex_overlap_config) -> None:
     assert iterator1_size <= iterator2_size <= iterator3_size
 
 
+def test_overlap() -> None:
+    max = 10000
+    min = -10000
+    no_ov = 0
 
+    for _ in range(N):
+        p1_s = random.randint(min, max)
+        p1_e = random.randint(p1_s, max)
+
+        p2_s = random.randint(min, max)
+        p2_e = random.randint(p2_s, max)
+
+        ov1 = overlap(p1_s, p1_e, p2_s, p2_e)
+        ov2 = overlap(p2_s, p2_e, p1_s, p1_e)
+        assert ov1 == ov2
+
+        if not ov1:
+            no_ov += 1
+            for i in range(p1_s, p1_e + 1):
+                assert i not in range(p2_s, p2_e + 1)
+
+        else:
+            found = False
+            for i in range(p1_s, p1_e + 1):
+                if i in range(p2_s, p2_e + 1):
+                    found = True
+                    break
+            if not found:
+                assert False
+
+    assert no_ov < N - N // 10
+    print(no_ov)
 
 
 

@@ -19,7 +19,8 @@ PrimerParams = collections.namedtuple(
     'PrimerParams',
     [
         'primer_primer_distance', 'primer_target_distance',
-        'target_region_len', 'binding_region_len', 'ideal_binding_size'
+        'target_region_len', 'binding_region_len', 'ideal_binding_size',
+        'max_binding_target_len'
     ])
 
 INT_LIST = 'Format: "val1, val2, val3..."'
