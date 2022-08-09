@@ -1,12 +1,9 @@
 import threading
 from statistics import stdev
-from multiprocessing import Process, Manager
-import hetero_spacer_generator.spacer_generator.hetero_spacer_generator as hsg
+from hetero_spacer_generator import hetero_spacer_generator as hsg
 from test_files.fixtures_and_helpers import gen_random_seq
 from math import factorial
-from typing import Tuple, List, Dict, Union
-from time import time
-import os
+from typing import Tuple, List, Dict
 
 '''
 A script to estimate the size sequence space of the average heterogeneity

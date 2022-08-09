@@ -1,4 +1,4 @@
-from hetero_spacer_generator.spacer_generator.multi_align_gen import *
+from multiplex_spacer_generator.binding_align import *
 import pytest
 
 
@@ -26,15 +26,6 @@ def num_hetero() -> int:
 
 
 @pytest.mark.parametrize('align,spacers,expected_min_score', [
-    ([
-         'ATCTCGAATCGAT',
-         'TCGAATCGAT',
-         'ATCGATCGAATCGAT',
-         'ATCGATCGAATCGAT',
-         'TCGATCGAATCGAT',
-         'CGATCGAATCGATCGA',
-         'TCGATCGAATCGATCGA',
-     ], [0, 1, 2, 3], 25 ** 4),
     ([
          'ATCGATCGA',
          'ATCGATCGA',

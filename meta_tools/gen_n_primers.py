@@ -5,9 +5,9 @@ from hetero_spacer_generator.spacer_generator.spacer_filters import \
 from time import time
 from hetero_spacer_generator.primer_tools import MBPrimerBuilder, MaxInt, \
     PrimerSet
-from typing import Dict, TypeVar, Union
+from typing import TypeVar
 import random
-from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import \
+from hetero_spacer_generator.hetero_spacer_generator import \
     HeteroGen
 from pathlib import Path
 from meta_tools.template_sequences import *

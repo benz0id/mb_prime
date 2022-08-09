@@ -1,10 +1,9 @@
 from multiprocessing import freeze_support
 
-from execution_managers import demo_tools
 from execution_managers.demo_tools import get_spacer
 from execution_managers.parameter_manager import get_pm
 from hetero_spacer_generator.primer_tools import MBPrimerBuilder
-from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import \
+from hetero_spacer_generator.hetero_spacer_generator import \
     HeteroGen
 from meta_tools.gen_n_primers import primer_sets_to_str
 

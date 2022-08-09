@@ -4,7 +4,8 @@ import pytest as pt
 
 from config_handling.formatting import *
 from seq_alignment_analyser.find_binding_pairs import *
-from test_files.fixtures_and_helpers import ALIGNMENTS_PATH, configure_log_out
+from test_files.fixtures_and_helpers import ALIGNMENTS_PATH, configure_log_out, \
+    get_msa
 
 configure_log_out('FindBindingPairs')
 
@@ -27,8 +28,11 @@ def single_target_fbp() -> FindBindingPairs:
 
     max_mt_deviance = 5
 
-    return FindBindingPairs(target_sites, adapters, primer_params,
+    fbp = FindBindingPairs(target_sites, adapters, primer_params,
                            alignments_path, targ_mt, max_mt_deviance)
+    fbp._cur_msa = get_msa('alex_test_align')
+    fbp._cur_target = 'test_target_1'
+    return fbp
 
 
 def test_single_target_fbp(single_target_fbp: FindBindingPairs) -> None:
@@ -153,7 +157,7 @@ def multi_target_fbp_no_conflict_complex_open() -> FindBindingPairs:
     max_mt_deviance = 5
 
     return FindBindingPairs(target_sites, adapters, primer_params,
-                           alignments_path, targ_mt, max_mt_deviance, mode=OPEN)
+                           alignments_path, targ_mt, max_mt_deviance)
 
 def test_multi_target_fbp_no_conflict_complex_open(multi_target_fbp_no_conflict_complex_open) -> None:
     multi_target_fbp_no_conflict_complex_open.get_best_binding_pairs()
@@ -161,7 +165,7 @@ def test_multi_target_fbp_no_conflict_complex_open(multi_target_fbp_no_conflict_
 rand_seq = lambda n: ''.join([random.choice('ATCG-') for _ in range(n)])
 
 def test_bulk() -> None:
-    msa_len = 2000
+    """msa_len = 2000
     num_seqs = 5
 
     seqs = [rand_seq(msa_len) for _ in range(num_seqs)]
@@ -172,6 +176,6 @@ def test_bulk() -> None:
 
 
 
-    while next_targ
+    while next_targ"""
 
 

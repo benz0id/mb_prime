@@ -286,8 +286,6 @@ class MSA:
             lst.append(self._conservation[i])
         return tuple(lst)
 
-
-
     def get_total_conservation(self, start: int, stop: int) -> float:
         """Returns the mean % conservation across the given region -
         [start, stop)."""

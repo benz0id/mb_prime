@@ -1,6 +1,7 @@
 import os
 import timeit
 from pathlib import Path
+from sys import stdout
 from typing import List, Tuple, Union
 import math
 import numpy as np
@@ -12,20 +13,79 @@ from multiprocessing import Process, Manager, Queue
 import logging as lg
 
 logger = lg.RootLogger(level=0)
+logger.addHandler(lg.StreamHandler(stdout))
 
 # Apple trees and goat cheese.
 BASE_TO_INT = {
-    'A': 0,
-    'T': 1,
-    'G': 2,
-    'C': 3,
-    '-': 4
+    '-': 0,
+    'A': 1,
+    'T': 2,
+    'G': 3,
+    'C': 4
 }
+
+
+def get_min_pos_repr(total: int, len: int, B: int) -> List[int]:
+    """Returns a list containing the minimal radix <B> + 1 representation with
+    sum == total"""
+    lst = [0] * len
+    i = 0
+    while total != 0:
+        amt = min(total, B)
+        lst[i] = amt
+        total -= amt
+        i += 1
+    return lst
+
+
+def incr_repr(repr: List[int], B: int) -> bool:
+    """Increments a representation <repr> interpreted to be radix <B> + 1 with
+    the least significant digit at <repr>[0]."""
+    for i, v in enumerate(repr):
+        if v < B:
+            repr[i] += 1
+            return True
+        else:
+            repr[i] = 0
+            if i == len(repr) - 1:
+                return False
+
+
+def smart_incr(lst: List[int], max_val: int) -> bool:
+    """Increments radix <max_val> + 1 representaion <lst> S.T. sum(lst) remains
+    unnchanged."""
+    def getmin() -> int:
+        for i in range(len(lst) - 1):
+            if lst[i] > 0 and lst[i + 1] < max_val:
+                return i
+        return -1
+
+    min_ind = getmin()
+
+    if min_ind == -1:
+        return False
+
+    lst[min_ind] -= 1
+    lst[min_ind + 1] += 1
+
+    sums = sum(lst[:min_ind + 1])
+    for i in range(min_ind + 1):
+        lst[i] = 0
+
+    i = 0
+    while sums != 0:
+        amt = min(sums, max_val)
+        lst[i] = amt
+        sums -= amt
+        i += 1
+
+    return True
+
 
 def compute_column_score(bases: Union[List[int], np.ndarray],
                          total: int) -> int:
     """Given the base frequency of each type of base in an alignment column,
-    ordered: A, T, C, G, unassigned (matching indexing with BASE_TO_INT),
+    ordered: unassigned A, T, C, G, (matching indexing with BASE_TO_INT),
     returns some score quantifying the level (or potential level) of diversity
     in that column. Total is the total number of bases in that column.
 
@@ -55,6 +115,9 @@ def compute_column_score(bases: Union[List[int], np.ndarray],
     percent_reps = [max(val / total * 100, 1) for val in b_vals]
 
     return int(np.prod(percent_reps))
+
+
+SpacerCombo = List[int]
 
 
 class NumpyBindingAlign:
@@ -128,11 +191,16 @@ class NumpyBindingAlign:
 
         self._spacer_sizes = spacer_sizes
 
+    def get_spacer_sizes(self) -> SpacerCombo:
+        """Returns a copy of the spacer combo currently stored by this binding
+        align."""
+        return self._spacer_sizes[:]
+
     def find_min_div(self) -> int:
         """Returns the lowest diversity value found in the  first
         <self._num_hetero> bases."""
         # Set to theoretical max.
-        min_score = 25 ** 25
+        min_score = 25 ** 4
         # Find diversity score of each column.
         for col in range(self._num_hetero):
             # Number of each type of base in the current column,
@@ -151,7 +219,7 @@ class NumpyBindingAlign:
                 # Accounting for the shift introduced by heterogeneity spacers.
                 shifted_col = col - self._spacer_sizes[b]
                 # Increment base count.
-                num_bases[self._numpy_align[b, shifted_col] + 1] += 1
+                num_bases[self._numpy_align[b, shifted_col]] += 1
 
             # Compute score.
             score = compute_column_score(num_bases, self._num_seqs)
@@ -159,6 +227,12 @@ class NumpyBindingAlign:
                 min_score = score
 
         return min_score
+
+    def incr_spacer_maintain_size(self) -> None:
+        """Increments the spacer while maintaining the total length of spacers.
+        """
+        if not smart_incr(self._spacer_sizes, self._num_hetero):
+            raise StopIteration
 
     def get_mean_spacer_size(self) -> float:
         """Returns the mean spacer size"""
@@ -171,12 +245,7 @@ class NumpyBindingAlign:
     def incr_spacer_sizes(self, num: int = 1) -> None:
         """Increments the spacer sizes."""
         for _ in range(num):
-            for i, val in enumerate(self._spacer_sizes):
-                if val == self._num_hetero:
-                    self._spacer_sizes[i] = 0
-                else:
-                    self._spacer_sizes[i] += 1
-                    break
+            incr_repr(self._spacer_sizes, self._num_hetero)
 
 
 def gen_random_seq_str(length: int, GC: float = 0.5) -> str:
@@ -187,7 +256,7 @@ def gen_random_seq_str(length: int, GC: float = 0.5) -> str:
     return ''.join(choices(bases, weights=[AT / 2, AT / 2, GC / 2, GC / 2],
                            k=length))
 
-def get_runtime(num_seqs: int, num_hetero: int, silent: bool = True) -> float:
+def get_runtime(num_seqs: int, num_hetero: int, silent: bool = False) -> float:
     """Gets the runtime for some number of find_max_div operations. Returns the
     average runtime of each operation."""
 
@@ -289,7 +358,6 @@ def get_results(aln: NumpyBindingAlign, num: int,
     pt = time.time() - pt0
     time_queue.put(pt)
     return
-
 
 
 def divide_responsibility(num_tasks: int, num_procs: int) -> List[int]:
@@ -425,21 +493,21 @@ def org_set():
 
 if __name__ == '__main__':
     NUM_PROCS = 8
-    NUM_HETERO = 11
+    NUM_HETERO = 12
     NUM_REPS = 3
+    NUM_SEQS = 9
     O_PATH = Path('C:\\Users\\bfern\\OneDrive - University of Toronto\\Desktop\\Hetero Output')
 
     # Runtime Estimate
     rt = 0
-    for NUM_SEQS in range(4, 9):
-        rt += get_num_comp(NUM_SEQS, NUM_HETERO, NUM_REPS, silent=True,
-                           num_cores=NUM_PROCS)
+    rt += get_num_comp(NUM_SEQS, NUM_HETERO, NUM_REPS, silent=False,
+                 num_cores=NUM_PROCS)
     print("Est. total runtime:", get_time_string(rt))
 
-    for NUM_SEQS in range(4, 9):
-        PATH = O_PATH / ('Het5 Seq' + str(NUM_SEQS))
-        get_num_comp(NUM_SEQS, NUM_HETERO, NUM_REPS)
-        gen_csv(NUM_SEQS, NUM_HETERO, NUM_REPS, PATH, num_procs=NUM_PROCS)
+    #for NUM_SEQS in range(4, 9):
+    #    PATH = O_PATH / ('Het5 Seq' + str(NUM_SEQS))
+    #    get_num_comp(NUM_SEQS, NUM_HETERO, NUM_REPS)
+    #    gen_csv(NUM_SEQS, NUM_HETERO, NUM_REPS, PATH, num_procs=NUM_PROCS)
 
 
 

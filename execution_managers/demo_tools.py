@@ -2,8 +2,7 @@ from hetero_spacer_generator.primer_tools import MBPrimerBuilder
 from typing import Union, Tuple
 from hetero_spacer_generator.defaults import ABSOLUTE_MAX_NUM_HETERO, \
     ABSOLUTE_MAX_SPACER_LENGTH
-from time import sleep
-from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import HeteroGen
+from hetero_spacer_generator.hetero_spacer_generator import HeteroGen
 
 STR = 'str'
 RANGE = 'ran'

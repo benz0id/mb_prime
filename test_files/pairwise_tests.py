@@ -1,19 +1,17 @@
 import random
 
-from Bio.Seq import Seq
 import pytest
 import fixtures_and_helpers as fah
 from hetero_spacer_generator.primer_tools import MBPrimer, \
     MBPrimerBuilder, PairwisePrimerSet, Primer
-from hetero_spacer_generator.spacer_generator.criteria import EvalMBPrimer, \
-    EvalMBPrimerNaive
+from hetero_spacer_generator.spacer_generator.criteria import EvalMBPrimerNaive
 from hetero_spacer_generator.sequence_tools import P3AdapterInt, SeqAnalyzer
-from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import \
+from hetero_spacer_generator.hetero_spacer_generator import \
     HeteroGen, SpacerAlignmentGen
 from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
     gen_hetero_set
 from hetero_spacer_generator.spacer_generator.spacer_filters import \
-    SortForPairwise, SpacerAlignment
+    SortForPairwise
 from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
     RandomSpacerGen
 

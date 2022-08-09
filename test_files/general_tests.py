@@ -1,4 +1,4 @@
-from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import *
+from hetero_spacer_generator.hetero_spacer_generator import *
 from hetero_spacer_generator.primer_tools import *
 from hetero_spacer_generator.sequence_tools import *
 import random

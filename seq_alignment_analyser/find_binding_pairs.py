@@ -187,7 +187,7 @@ class FindBindingPairs:
 
         # See whether a significant number of binding pairs were missed as a
         # consequence of melting temp
-        while self.too_many_missed() and not self._max_lens:
+        while self.too_many_missed(iterator) and not self._max_lens:
             self._adjust_iterator(iterator)
             self.get_n_most_conserved_valid(NUM_TO_KEEP, iterator)
 
@@ -243,17 +243,27 @@ class FindBindingPairs:
 
         return False
 
-    def too_many_missed(self) -> bool:
+    def too_many_missed(self, iterator: HeteroSeqIterator) -> bool:
         """Returns whether a significant number of primer pairs were missed due
         to the produced melting temps being too high or low."""
+        cur_f_len, cur_r_len = self._iterator_manager. \
+            get_iterator_primer_size(iterator)
 
+        brl = self._iterator_manager.binding_region_len
+
+        # Have a significant portion of the primers been ignored due to melting
+        # temp? Have we already reached a length threshold?
         missed_f = self._num_f_mt_high - self._num_f_mt_low
         if abs(missed_f) / self._total_bps * 100 > RETRY_PERCENT:
-            return True
+            f_len_lim_reached = cur_f_len == min(brl) or cur_f_len == max(brl)
+            if not f_len_lim_reached:
+                return True
 
         missed_r = self._num_r_mt_high - self._num_r_mt_low
         if abs(missed_r) / self._total_bps * 100 > RETRY_PERCENT:
-            return True
+            r_len_lim_reached = cur_r_len == min(brl) or cur_r_len == max(brl)
+            if not r_len_lim_reached:
+                return True
 
         return False
 
