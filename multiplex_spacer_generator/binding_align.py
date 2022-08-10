@@ -6,7 +6,7 @@ from typing import List, Tuple, Union
 import math
 import numpy as np
 from copy import deepcopy
-from random import randint, choices
+from random import randint, choices, choice
 from statistics import stdev
 import time
 from multiprocessing import Process, Manager, Queue
@@ -233,6 +233,20 @@ class NumpyBindingAlign:
         """
         if not smart_incr(self._spacer_sizes, self._num_hetero):
             raise StopIteration
+
+    def random_spacer_maintain_size(self) -> None:
+        """Sets the spacer to another random spacer with the same size as the
+        current one."""
+        total_size_to_add = sum(self._spacer_sizes)
+        self._spacer_sizes = [0] * len(self._spacer_sizes)
+        inds = list(range(len(self._spacer_sizes)))
+
+        while total_size_to_add > 0:
+            ind = choice(inds)
+            self._spacer_sizes += 1
+            if self._spacer_sizes[ind] == self._num_hetero:
+                inds.remove(ind)
+            total_size_to_add -= 1
 
     def get_mean_spacer_size(self) -> float:
         """Returns the mean spacer size"""

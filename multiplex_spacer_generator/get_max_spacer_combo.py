@@ -7,16 +7,24 @@ NOTHING_FOUND_MSG = 'nothing_found'
 
 
 def get_max_spacer_combo(binding_align: NumpyBindingAlign, out_queue: Queue,
-                         num_to_iter: int, max_score: int) -> None:
+                         num_to_iter: int, max_score: int,
+                         do_random_generation: bool) -> None:
     """Will iterate over the next <num_to_iter> spacer combos in
     <start_binding_align> or until a combo is found with score equal to
     <max_score>, and will place that combo in <out_queue>."""
+    if do_random_generation:
+        num_to_iter = 10 ** 20
+        random_gen = ' - RANDOM GENERATION ENABLED'
+    else:
+        random_gen = ''
+
     process_header = 'Child Process ' + str(os.getpid()) + ': '
     combo_found = False
 
     out_queue.put(''.join([
         process_header, 'Beginning iteration over ', str(num_to_iter),
-        ' spacers, starting at ', str(binding_align.get_spacer_sizes()), '.'
+        ' spacers, starting at ', str(binding_align.get_spacer_sizes()), '. ',
+        random_gen
     ]))
 
     # Check initial align for maximal score.
@@ -28,7 +36,10 @@ def get_max_spacer_combo(binding_align: NumpyBindingAlign, out_queue: Queue,
     # Check specified region for maximal score.
     for _ in range(num_to_iter - 1):
         # Continue to next spacer combo that maintains the total size.
-        binding_align.incr_spacer_maintain_size()
+        if not do_random_generation:
+            binding_align.incr_spacer_maintain_size()
+        else:
+            binding_align.random_spacer_maintain_size()
         # If the score is equal to the maximal score, add it to the queue.
         score = binding_align.find_min_div()
         if score == max_score:

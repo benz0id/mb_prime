@@ -32,6 +32,7 @@ def configure_log_out(out_file_name: str) -> None:
     handler = logging.FileHandler(TEST_OUTPUT_PATH /
                                   (out_file_name + '.log'))
     root_log = logging.getLogger('root')
+    root_log.handlers = []
     root_log.addHandler(handler)
     root_log.setLevel(10)
     root_log.info('\n   ====   Test Session Begins: ' + str(datetime.datetime.now())

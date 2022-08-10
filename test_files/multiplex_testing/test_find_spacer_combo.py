@@ -87,18 +87,3 @@ def test_run_full_many_seqs_multi_proc() -> None:
     combo = basic_fsc.run()
     print('\n', combo_str(combo, seqs))
     assert combo
-
-    seqs = [
-        'ATGCATGCATGC',
-        'CATGCATGCATGC',
-        'GCATGCATGCATGC',
-        'TGCATGCATGCATGC',
-        'ATGCATGCATGC',
-        'CATGCATGCATGC',
-        'GCATGCATGCATGC',
-        'TGCATGCATGCATGC'
-    ]
-    basic_fsc = FindSpacerCombo(1800, 8, seqs, 12)
-    combo = basic_fsc.run()
-    combo_str(combo, seqs)
-    assert combo

@@ -4,15 +4,25 @@ from typing import List, Tuple, Iterable
 from multiprocessing import Process, Manager, Queue
 from tqdm import tqdm
 from multiplex_spacer_generator.binding_align import SpacerCombo, \
-    compute_column_score, get_time_string, incr_repr, NumpyBindingAlign, \
-    smart_incr, \
-    get_min_pos_repr
+    compute_column_score, incr_repr, NumpyBindingAlign, smart_incr, \
+    get_min_pos_repr, get_time_string
 from multiplex_spacer_generator.get_max_spacer_combo import \
     get_max_spacer_combo, NOTHING_FOUND_MSG
 import heapq
 
 TICK_SPEED = 1000
 MIN_PER_PROCESS = 1000
+MAX_BEFORE_RANDOM = 12 ** 8
+
+
+def test_combo(spacer_combo: SpacerCombo, seqs: list[str],
+               num_hetero: int) -> None:
+    """Tests whether the given combo has maximal diversity."""
+    max_score = NumpyBindingAlign(seqs, [num_hetero] * len(seqs), num_hetero).\
+        find_min_div()
+    acc_score = NumpyBindingAlign(seqs, spacer_combo, num_hetero).\
+        find_min_div()
+    assert max_score == acc_score
 
 
 def time_prog_bar(stop_time: int) -> None:
@@ -51,6 +61,10 @@ class FindSpacerCombo:
     _end_time: The time after which this class will return the best spacer combo
         it has found.
     _max_score: Maximum possible diversity score attainable by a spacer.
+    _do_random_generation: When number of possible spacer combos becomes too
+        large, threads are instructed to randomly select them rather than follow
+        a defined set.
+
 
     # Runtime Storage.
     _best_combos: A heap of the best spacers found, sorted by total length.
@@ -73,6 +87,7 @@ class FindSpacerCombo:
     # Derived parameters.
     _end_time: int  # Seconds since epoch.
     _max_score: int
+    _do_random_generation: int
 
     # Runtime Storage.
     _best_combos: List[Tuple[int, SpacerCombo]]
@@ -97,6 +112,17 @@ class FindSpacerCombo:
         self._max_score = compute_column_score([len(self._seqs), 0, 0, 0, 0],
                                                len(self._seqs))
 
+        num_pos_spacers = hetero_region_size ** len(self._seqs)
+        self._do_random_generation = num_pos_spacers > MAX_BEFORE_RANDOM
+        if self._do_random_generation:
+            log.info(''.join([
+                'Number of possible spacers exceeds threshold for ordered '
+                'iteration.',
+                '\n\t', str(num_pos_spacers), ' > ', str(MAX_BEFORE_RANDOM)
+            ]))
+            log.warning('RANDOM GENERATION ENABLED - '
+                        'SPACER QUALITY MAY BE LOWER')
+
         self._best_combos = []
 
         self._threads = []
@@ -107,11 +133,11 @@ class FindSpacerCombo:
         """Runs for the specified amount of time, returning the best spacer
         combo found."""
         max_total_len = len(self._seqs) * self._hetero_region_size
+        total_len = max_total_len // 3 * 2
 
         # For every possible total spacer length, starting at the maximum,
         # decreasing by the number of seqs in the alignment each time.
-        total_len = max_total_len
-        while total_len > 0:
+        while total_len in range(max_total_len, -1, -1):
             log.info('    === Beginning Search for Spacer Combo at Length ' +
                      str(total_len) + ' ===    ')
             log.info('Generating Threads.')
@@ -119,16 +145,18 @@ class FindSpacerCombo:
             log.info('Starting Threads.')
             self._start_threads()
 
-            self._wait_for_result_or_time_expiry()
+            # Couldn't find spacer combo.
+            if not self._wait_for_result_or_time_expiry():
+                total_len += len(self._seqs) // 3
+            else:
+                total_len -= len(self._seqs)
             if self._time_expired():
-                log.info('Time expired. Stopping search for spacer combos.')
+                log.info('Stopping search for spacer combos.')
                 break
             else:
                 log.info('Search for Spacer Combo at Length ' +
                 str(total_len) + ' complete.\nTime Remaining: ' +
                          get_time_string(self._end_time - time()))
-            total_len -= len(self._seqs)
-
         log.info('Returning the best found combo found: ' +
                  str(self._best_combos[0]))
         return self._best_combos[0][1]
@@ -159,12 +187,14 @@ class FindSpacerCombo:
 
                 elif not combo_found and isinstance(data, list):
                     spacer_tup = sum(data), data[:]
-                    log.info('Combo received: ' + str(spacer_tup))
                     log.info('Time before receiving first combo:'
                              + get_time_string(time() - t0))
+                    log.info('Combo received: ' + str(spacer_tup))
                     heapq.heappush(self._best_combos, spacer_tup)
                     continuation_permitted = False
                     combo_found = True
+
+                    test_combo(data, self._seqs, self._hetero_region_size)
 
             if num_failures == num_threads:
                 log.info('All threads failed to find a valid combo.')
@@ -208,6 +238,7 @@ class FindSpacerCombo:
         thread_num = 0
         # Convert each designated region into its own thread.
         for num_to_iter, starting_spacer in self._get_thread_params(total_len):
+
             thread_str += ''.join(
                 [
                     '\t Thread #', str(thread_num), ': ', str(starting_spacer),
@@ -218,7 +249,8 @@ class FindSpacerCombo:
                                               self._hetero_region_size)
             thread = Process(target=get_max_spacer_combo,
                              args=(binding_align, self._thread_out_queue,
-                                   num_to_iter, self._max_score))
+                                   num_to_iter, self._max_score,
+                                   self._do_random_generation))
             self._threads.append(thread)
             thread_num += 1
 
@@ -272,6 +304,12 @@ class FindSpacerCombo:
         to completion, every heterogeneity spacer with <total_len> will have
         been iterated over."""
         t0 = time()
+        # If spacers are to be generated randomly, we needn't delegate regions.
+        if self._do_random_generation:
+            return [(-1, get_min_pos_repr(total_len, len(self._seqs),
+                                          self._hetero_region_size))
+                    for _ in range(self._max_threads)]
+
         num_pos = self._get_num_pos(total_len)
         if num_pos == 0:
             raise ValueError('There exist no possible spacer combos that '
@@ -302,6 +340,7 @@ class FindSpacerCombo:
 
         td = time() - t0
         log.info('Time spent getting thread params:' + get_time_string(td))
+
         return rtrn
 
 
