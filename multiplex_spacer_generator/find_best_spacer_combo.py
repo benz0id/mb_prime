@@ -4,7 +4,8 @@ from typing import List, Tuple, Iterable
 from multiprocessing import Process, Manager, Queue
 from tqdm import tqdm
 from multiplex_spacer_generator.binding_align import SpacerCombo, \
-    compute_column_score, incr_repr, NumpyBindingAlign, smart_incr, \
+    compute_column_score, get_time_string, incr_repr, NumpyBindingAlign, \
+    smart_incr, \
     get_min_pos_repr
 from multiplex_spacer_generator.get_max_spacer_combo import \
     get_max_spacer_combo, NOTHING_FOUND_MSG
@@ -109,7 +110,8 @@ class FindSpacerCombo:
 
         # For every possible total spacer length, starting at the maximum,
         # decreasing by the number of seqs in the alignment each time.
-        for total_len in range(max_total_len, -1, -1):
+        total_len = max_total_len
+        while total_len > 0:
             log.info('    === Beginning Search for Spacer Combo at Length ' +
                      str(total_len) + ' ===    ')
             log.info('Generating Threads.')
@@ -119,8 +121,14 @@ class FindSpacerCombo:
 
             self._wait_for_result_or_time_expiry()
             if self._time_expired():
-                log.info('Stopping search for spacer combos.')
+                log.info('Time expired. Stopping search for spacer combos.')
                 break
+            else:
+                log.info('Search for Spacer Combo at Length ' +
+                str(total_len) + ' complete.\nTime Remaining: ' +
+                         get_time_string(self._end_time - time()))
+            total_len -= len(self._seqs)
+
         log.info('Returning the best found combo found: ' +
                  str(self._best_combos[0]))
         return self._best_combos[0][1]
@@ -129,6 +137,7 @@ class FindSpacerCombo:
         """Waits for valid data from threads. Returns True iff a spacer has been
         found, returns false if the timer has expired or the child processes
         failed to find a valid set."""
+        t0 = time()
         continuation_permitted = True
         num_threads = len(self._threads)
         num_failures = 0
@@ -151,6 +160,8 @@ class FindSpacerCombo:
                 elif not combo_found and isinstance(data, list):
                     spacer_tup = sum(data), data[:]
                     log.info('Combo received: ' + str(spacer_tup))
+                    log.info('Time before receiving first combo:'
+                             + get_time_string(time() - t0))
                     heapq.heappush(self._best_combos, spacer_tup)
                     continuation_permitted = False
                     combo_found = True
@@ -209,6 +220,7 @@ class FindSpacerCombo:
                              args=(binding_align, self._thread_out_queue,
                                    num_to_iter, self._max_score))
             self._threads.append(thread)
+            thread_num += 1
 
         log.info(thread_str)
 
@@ -259,6 +271,7 @@ class FindSpacerCombo:
         many more to iterate beyond that first spacer combo. If all threads run
         to completion, every heterogeneity spacer with <total_len> will have
         been iterated over."""
+        t0 = time()
         num_pos = self._get_num_pos(total_len)
         if num_pos == 0:
             raise ValueError('There exist no possible spacer combos that '
@@ -287,6 +300,8 @@ class FindSpacerCombo:
         rtrn = [tuple((thread_responsibilities[i], start_combos[i]))
                 for i in range(len(start_combos))]
 
+        td = time() - t0
+        log.info('Time spent getting thread params:' + get_time_string(td))
         return rtrn
 
 

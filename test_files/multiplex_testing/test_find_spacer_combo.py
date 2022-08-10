@@ -81,6 +81,13 @@ def test_run_full_many_seqs_single_proc() -> None:
 
 
 def test_run_full_many_seqs_multi_proc() -> None:
+
+    seqs = [str(gen_random_seq(12)) for _ in range(8)]
+    basic_fsc = FindSpacerCombo(1800, 8, seqs, 12)
+    combo = basic_fsc.run()
+    print('\n', combo_str(combo, seqs))
+    assert combo
+
     seqs = [
         'ATGCATGCATGC',
         'CATGCATGCATGC',
@@ -91,13 +98,7 @@ def test_run_full_many_seqs_multi_proc() -> None:
         'GCATGCATGCATGC',
         'TGCATGCATGCATGC'
     ]
-    basic_fsc = FindSpacerCombo(600, 8, seqs, 12)
+    basic_fsc = FindSpacerCombo(1800, 8, seqs, 12)
     combo = basic_fsc.run()
     combo_str(combo, seqs)
-    assert combo
-
-    seqs = [str(gen_random_seq(12)) for _ in range(8)]
-    basic_fsc = FindSpacerCombo(600, 8, seqs, 12)
-    combo = basic_fsc.run()
-    print('\n', combo_str(combo, seqs))
     assert combo
