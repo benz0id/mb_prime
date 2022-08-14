@@ -13,6 +13,7 @@ import heapq
 TICK_SPEED = 1000
 MIN_PER_PROCESS = 1000
 MAX_BEFORE_RANDOM = 12 ** 8
+SHORT_TIME_THRESHOLD = 5 * 60
 
 
 def test_combo(spacer_combo: SpacerCombo, seqs: list[str],
@@ -135,8 +136,10 @@ class FindSpacerCombo:
         """Runs for the specified amount of time, returning the best spacer
         combo found."""
         max_total_len = len(self._seqs) * self._hetero_region_size
-
-        total_len = (max_total_len // 3) * 2
+        if self._end_time - time() < SHORT_TIME_THRESHOLD:
+            total_len = max_total_len
+        else:
+            total_len = (max_total_len // 3) * 2
 
         if self._do_random_generation:
             incr_size = len(self._seqs) // 5
