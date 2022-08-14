@@ -195,9 +195,11 @@ def get_best_heterogeneity_spacer_seqs_threadable(
 
     # Record output data.
     rslts = []
+    rec_data = []
     while time_left or not all_procs_joined or not all_data_received:
         while not thread_out_queue.empty():
             data = thread_out_queue.get()
+            rec_data.append(data)
             if isinstance(data, str):
                 log.info(data)
             else:
