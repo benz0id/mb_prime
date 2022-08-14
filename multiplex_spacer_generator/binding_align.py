@@ -199,6 +199,9 @@ class NumpyBindingAlign:
     def find_min_div(self) -> int:
         """Returns the lowest diversity value found in the  first
         <self._num_hetero> bases."""
+        assert min(self._spacer_sizes) >= 0
+        assert max(self._spacer_sizes) <= self._num_hetero
+
         # Set to theoretical max.
         min_score = 25 ** 4
         # Find diversity score of each column.

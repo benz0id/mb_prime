@@ -77,3 +77,9 @@ class PrimerPool:
             )
         return s
 
+    def __iter__(self) -> List[str]:
+        f_seqs = [str(primer) for primer in self._f_primers]
+        r_seqs = [str(primer) for primer in self._r_primers]
+        return f_seqs + r_seqs
+
+

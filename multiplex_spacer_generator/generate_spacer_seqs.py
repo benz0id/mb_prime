@@ -27,6 +27,7 @@ ALERT_EVERY = 1000
 
 MIN_DG = -10000000000000000000
 
+
 class Process(mp.Process):
     def __init__(self, *args, **kwargs):
         mp.Process.__init__(self, *args, **kwargs)
@@ -185,6 +186,13 @@ def get_best_heterogeneity_spacer_seqs_threadable(
         num_threads: int) -> PrimerPool:
     """Returns the primer pool least predisposed to forming very stable dimer
     structures."""
+    dummy_primer_pool = get_new_primer_pool(f_5p, f_binding, r_5p, r_binding,
+                        f_spacers, r_spacers)
+    for seq in dummy_primer_pool:
+        if len(seq) > 60:
+            raise ValueError('All sequences must be shorten than 60 bp in order'
+                             ' to optimise dimer structure.')
+
     manager = mp.Manager()
     thread_out_queue = manager.Queue()
     fin_time = time() + allowed_seconds
@@ -235,11 +243,6 @@ def get_best_heterogeneity_spacer_seqs_threadable(
     max_set_data = max(rslts, key=lambda a: a[0])
     max_set = max_set_data[1]
 
-    log.info('Returning Max Set: ' + max_set[0] + '\n' + str(max_set))
+    log.info('Returning Max Set: ' + max_set + '\n' + str(max_set))
 
     return max_set
-
-
-
-
-

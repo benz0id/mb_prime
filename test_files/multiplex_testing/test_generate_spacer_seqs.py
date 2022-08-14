@@ -55,7 +55,7 @@ def test_get_rand_hetero_seqs_random_seqs() -> None:
 
     for _ in range(num_reps):
         het_len = random.randint(0, max_het)
-        num_seqs = random.randint(0, max_seqs)
+        num_seqs = random.randint(1, max_seqs)
         seqs = [rand_seq(het_len + 1) for _ in range(num_seqs)]
 
         spacer_finder = FindSpacerCombo(10, NUM_THREADS, seqs, het_len)
@@ -113,7 +113,7 @@ def test_simple_seq_generation() -> None:
 
 
 def test_hetero_seq_generation_unthreaded() -> None:
-    max_het = 20
+    max_het = 12
     max_seqs = 5
     num_reps = 5
     max_adapter_len = 24
@@ -123,7 +123,7 @@ def test_hetero_seq_generation_unthreaded() -> None:
 
     for _ in range(num_reps):
         het_len = random.randint(0, max_het)
-        num_seqs = random.randint(0, max_seqs)
+        num_seqs = random.randint(1, max_seqs)
         f_binding = [rand_seq(max_seq_len) for _ in range(num_seqs)]
         r_binding = [rand_seq(max_seq_len) for _ in range(num_seqs)]
         f_adapters = [rand_seq(max_adapter_len) for _ in range(num_seqs)]
@@ -175,18 +175,18 @@ def test_simple_seq_generation_threaded() -> None:
     print(final_pool)
 
 
-def test_hetero_seq_generation() -> None:
+def test_hetero_seq_generation_threaded() -> None:
     max_het = 20
     max_seqs = 20
     num_reps = 5
     max_adapter_len = 24
     max_seq_len = 24
-    spacer_finder_runtime = 30
-    seq_generation_runtime = 30
+    spacer_finder_runtime = 10
+    seq_generation_runtime = 10
 
     for _ in range(num_reps):
         het_len = random.randint(0, max_het)
-        num_seqs = random.randint(0, max_seqs)
+        num_seqs = random.randint(1, max_seqs)
         f_binding = [rand_seq(max_seq_len) for _ in range(num_seqs)]
         r_binding = [rand_seq(max_seq_len) for _ in range(num_seqs)]
         f_adapters = [rand_seq(max_adapter_len) for _ in range(num_seqs)]
@@ -204,6 +204,7 @@ def test_hetero_seq_generation() -> None:
             f_adapters, f_binding, r_adapters, r_binding, f_spacers, r_spacers,
             seq_generation_runtime, num_structs_to_view, NUM_THREADS)
         assert final_pool
+
 
 if __name__ == '__main__':
     standard_pytest_run(__file__)
