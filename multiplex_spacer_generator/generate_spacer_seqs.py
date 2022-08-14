@@ -208,8 +208,10 @@ def get_best_heterogeneity_spacer_seqs_threadable(
 
         sleep(0.1)
 
+    max_set_data = max(rslts, key=lambda a: a[0])
+    max_set = max_set_data[1]
 
-    max_set = max(rslts, key=lambda a: a[0])[1]
+    log.info('Returning Max Set: ' + max_set[0] + '\n' + str(max_set))
 
     return max_set
 

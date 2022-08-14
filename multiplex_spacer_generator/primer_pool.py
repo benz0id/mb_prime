@@ -29,25 +29,51 @@ def get_all_dgs(seqs: List[str]) -> List[float]:
 
 
 class PrimerPool:
-    """Responsible for the construciton and storage of a collection of complete
+    """Responsible for the construction and storage of a collection of complete
     metabarcoding primers.
 
     _f_primers: The forward primers.
     _r_primers: The reverse primers.
         Where _f_primers[i] and _r_primers[i] target the same site.
+    _targ_names: The names of each target.
     """
     _f_primers: List[MBPrimer]
     _r_primers: List[MBPrimer]
+    _targ_names: List[str]
 
     def __init__(self, f_5p: List[str], f_hetero: List[str],
                  f_binding: List[str], r_5p: List[str], r_hetero: List[str],
-                 r_binding: List[str]) -> None:
+                 r_binding: List[str], targ_names: List[str] = None) -> None:
         """Combines the given components and places them into this primer pool.
         """
         self._f_primers = construct_bp_primers(f_5p, f_hetero, f_binding)
         self._r_primers = construct_bp_primers(r_5p, r_hetero, r_binding)
+        if targ_names:
+            self._targ_names = targ_names
+        else:
+            self._targ_names = []
 
     def get_all_seqs(self) -> List[MBPrimer]:
         """Returns all the sequences in this pool 5'-3'"""
         return self._f_primers[:] + self._r_primers[:]
+
+    def __str__(self) -> str:
+        s = ''
+        for i in range(len(self._f_primers)):
+            if self._targ_names:
+                targ_name = self._targ_names[i]
+                ind = ''
+            else:
+                targ_name = ''
+                ind = str(i + 1)
+
+            s += ''.join(
+                [
+                    '> ', targ_name, ' F', ind, '\n',
+                    str(self._f_primers[i]), '\n',
+                    '> ', targ_name, ' R', ind, '\n',
+                    str(self._r_primers[i]), '\n'
+                ]
+            )
+        return s
 

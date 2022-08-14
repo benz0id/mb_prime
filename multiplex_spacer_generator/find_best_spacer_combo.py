@@ -164,6 +164,12 @@ class FindSpacerCombo:
                 log.info('Search for Spacer Combo at Length ' +
                 str(total_len) + ' complete.\nTime Remaining: ' +
                          get_time_string(self._end_time - time()))
+
+        if not self._best_combos:
+            raise RuntimeError('Failed to find a primer set in the allotted '
+                               'time. Try allotting more time or entering a '
+                               'less complicated input.')
+
         log.info('Returning the best found combo found: ' +
                  str(self._best_combos[0]))
         return self._best_combos[0][1]
