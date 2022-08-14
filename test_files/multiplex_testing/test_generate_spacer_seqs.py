@@ -51,7 +51,7 @@ rand_seq = lambda a: ''.join([random.choice('ATCG') for _ in range(a)])
 def test_get_rand_hetero_seqs_random_seqs() -> None:
     max_het = 20
     max_seqs = 20
-    num_reps = 100
+    num_reps = 10
 
     for _ in range(num_reps):
         het_len = random.randint(0, max_het)
@@ -160,8 +160,7 @@ def test_hetero_seq_generation() -> None:
         final_pool = get_best_heterogeneity_spacer_seqs_threadable(
             f_adapters, f_binding, r_adapters, r_binding, f_spacers, r_spacers,
             seq_generation_runtime, num_structs_to_view, NUM_THREADS)
-        print(final_pool)
-
+        final_pool
 
 if __name__ == '__main__':
     standard_pytest_run(__file__)

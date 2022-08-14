@@ -49,7 +49,7 @@ def standard_pytest_run(test_path: str) -> None:
     cmd = ''.join(
         [
             'pytest ', str(test_path),
-            ' --log-cli-level=10  '
+            ' --log-cli-level=0  '
             # ' > ', str(TEST_OUTPUT_PATH / 'pytest_summary.log')
         ])
     print(cmd)
