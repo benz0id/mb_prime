@@ -16,6 +16,7 @@ def get_max_spacer_combo(binding_align: NumpyBindingAlign, out_queue: Queue,
     if do_random_generation:
         num_to_iter = 10 ** 20
         random_gen = ' - RANDOM GENERATION ENABLED'
+        binding_align.random_spacer_maintain_size()
     else:
         random_gen = ''
 

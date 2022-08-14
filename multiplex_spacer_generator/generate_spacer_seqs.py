@@ -170,6 +170,8 @@ def get_best_heterogeneity_spacer_seqs_threadable(
     log.info('   ==== Beginning Search for Least Dimer-Prone Heterogeneity '
              'Spacer Sequences ====')
 
+    log.info('Allotted time: ' + str(allowed_seconds))
+
     threads = []
     for _ in range(num_threads):
         threads.append(Process(target=get_best_heterogeneity_spacer_seqs,
@@ -204,9 +206,7 @@ def get_best_heterogeneity_spacer_seqs_threadable(
         time_left = fin_time > time()
         all_procs_joined = all_joined()
         all_data_received = num_data_rec == num_threads
-
-
-        sleep(0.1)
+        sleep(1)
 
     max_set_data = max(rslts, key=lambda a: a[0])
     max_set = max_set_data[1]
