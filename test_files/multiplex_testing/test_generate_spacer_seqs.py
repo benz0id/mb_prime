@@ -135,7 +135,7 @@ def test_simple_seq_generation_threaded() -> None:
 def test_hetero_seq_generation() -> None:
     max_het = 20
     max_seqs = 20
-    num_reps = 20
+    num_reps = 5
     max_adapter_len = 24
     max_seq_len = 24
     spacer_finder_runtime = 30
@@ -160,7 +160,7 @@ def test_hetero_seq_generation() -> None:
         final_pool = get_best_heterogeneity_spacer_seqs_threadable(
             f_adapters, f_binding, r_adapters, r_binding, f_spacers, r_spacers,
             seq_generation_runtime, num_structs_to_view, NUM_THREADS)
-        final_pool
+        assert final_pool
 
 if __name__ == '__main__':
     standard_pytest_run(__file__)
