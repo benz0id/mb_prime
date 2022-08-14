@@ -243,7 +243,7 @@ class NumpyBindingAlign:
 
         while total_size_to_add > 0:
             ind = choice(inds)
-            self._spacer_sizes += 1
+            self._spacer_sizes[ind] += 1
             if self._spacer_sizes[ind] == self._num_hetero:
                 inds.remove(ind)
             total_size_to_add -= 1

@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from typing import List, Tuple, TypeVar
 import random
@@ -27,12 +28,39 @@ SMALL_SAMPLE_SIZE = 10
 
 SMALL_SEQ_LEN = 2
 
+def remove_file_handlers() -> None:
+    to_rem = []
+    root_log = logging.getLogger('root')
+    for i, handler in enumerate(root_log.handlers):
+        if isinstance(handler, logging.FileHandler):
+            to_rem.append(i)
+
+    for i in to_rem[::-1]:
+        root_log.handlers.pop(i)
+
+
+def add_stdout_handler() -> None:
+    root_log = logging.getLogger('root')
+    root_log.addHandler(logging.StreamHandler(sys.stdout))
+
+
+def standard_pytest_run(test_path: str) -> None:
+    print(test_path)
+    cmd = ''.join(
+        [
+            'pytest ', str(test_path),
+            ' --log-cli-level=10  '
+            # ' > ', str(TEST_OUTPUT_PATH / 'pytest_summary.log')
+        ])
+    print(cmd)
+    os.system(cmd)
+
 def configure_log_out(out_file_name: str) -> None:
     """Configures a handler for a logging test session."""
     handler = logging.FileHandler(TEST_OUTPUT_PATH /
                                   (out_file_name + '.log'))
     root_log = logging.getLogger('root')
-    root_log.handlers = []
+    remove_file_handlers()
     root_log.addHandler(handler)
     root_log.setLevel(10)
     root_log.info('\n   ====   Test Session Begins: ' + str(datetime.datetime.now())

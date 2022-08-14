@@ -4,6 +4,7 @@ from multiplex_spacer_generator.binding_align import NumpyBindingAlign
 from logging import Logger
 
 NOTHING_FOUND_MSG = 'nothing_found'
+LOG_EVERY = 10000
 
 
 def get_max_spacer_combo(binding_align: NumpyBindingAlign, out_queue: Queue,
@@ -34,7 +35,9 @@ def get_max_spacer_combo(binding_align: NumpyBindingAlign, out_queue: Queue,
         combo_found = True
 
     # Check specified region for maximal score.
-    for _ in range(num_to_iter - 1):
+    for i in range(num_to_iter - 1):
+        detailed_logging = i % LOG_EVERY == 0
+
         # Continue to next spacer combo that maintains the total size.
         if not do_random_generation:
             binding_align.incr_spacer_maintain_size()
@@ -45,6 +48,14 @@ def get_max_spacer_combo(binding_align: NumpyBindingAlign, out_queue: Queue,
         if score == max_score:
             out_queue.put(binding_align.get_spacer_sizes())
             combo_found = True
+        if detailed_logging:
+            out_queue.put(''.join(
+                [
+                    process_header, 'Completed iteration over ', str(i),
+                    ' combos. Current: ', str(binding_align.get_spacer_sizes()),
+                    ' Score: ', str(score), '.'
+                ]
+            ))
     if not combo_found:
         out_queue.put(''.join(
             [
