@@ -21,7 +21,7 @@ BASE_TO_INT = {
 }
 INT_TO_BASE = {v: k for k, v in BASE_TO_INT.items()}
 
-NUM_ITER_BEFORE_CHECK = 10
+NUM_ITER_BEFORE_CHECK = 2
 
 ALERT_EVERY = 100
 
