@@ -162,7 +162,7 @@ def get_best_heterogeneity_spacer_seqs(
                     [
                         process_header, ' New best set found. [',
                         str(int(highest_avg_dg)), ' --> ', str(int(mean_dg)),
-                        ']'
+                        '] - Iteration:', str(num_iter)
                     ]
                 )
                 highest_avg_dg = mean_dg
