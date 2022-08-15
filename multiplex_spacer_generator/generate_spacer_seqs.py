@@ -140,7 +140,7 @@ def get_best_heterogeneity_spacer_seqs(
 
     while end_time > time():
         for _ in range(NUM_ITER_BEFORE_CHECK):
-
+            num_iter += 1
             if num_iter % ALERT_EVERY == 0:
                 msg = ''.join(
                     [
@@ -168,7 +168,7 @@ def get_best_heterogeneity_spacer_seqs(
                 highest_avg_dg = mean_dg
                 best_set = seq_pool
                 out_queue.put(msg)
-            num_iter += 1
+
     msg = ''.join(
         [
             process_header, ' Returning best set found - ',
@@ -214,6 +214,9 @@ def get_best_heterogeneity_spacer_seqs_threadable(
 
     def all_joined() -> bool:
         for thread in threads:
+            if thread.exception:
+                error, traceback = thread.exception
+                print(traceback)
             if thread.is_alive():
                 return False
         return True

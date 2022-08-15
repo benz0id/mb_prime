@@ -136,7 +136,8 @@ class FindSpacerCombo:
         """Runs for the specified amount of time, returning the best spacer
         combo found."""
         max_total_len = len(self._seqs) * self._hetero_region_size
-        if self._end_time - time() < SHORT_TIME_THRESHOLD:
+        if self._end_time - time() < SHORT_TIME_THRESHOLD and \
+                not self._do_random_generation:
             total_len = max_total_len
         else:
             total_len = (max_total_len // 3) * 2
