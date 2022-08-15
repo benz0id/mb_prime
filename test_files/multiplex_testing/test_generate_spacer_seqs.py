@@ -176,7 +176,7 @@ def test_simple_seq_generation_threaded() -> None:
 
 
 def test_hetero_seq_generation_threaded() -> None:
-    max_het = 20
+    max_het = 12
     max_seqs = 20
     num_reps = 5
     max_adapter_len = 24

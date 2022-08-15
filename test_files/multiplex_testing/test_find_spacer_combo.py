@@ -93,7 +93,7 @@ def test_run_full_many_seqs_multi_proc() -> None:
 
 
 def test_binding_align_iteration() -> None:
-    max_het = 20
+    max_het = 12
     max_seqs = 5
     num_reps = 100
     max_seq_len = 24
