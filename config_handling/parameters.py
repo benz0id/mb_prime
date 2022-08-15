@@ -116,6 +116,32 @@ class IntParam(SimpleParameter):
         self.data = int(s)
 
 
+class FloatParam(SimpleParameter):
+    """Responsible for storing and fetching integer parameters.
+
+    === Public Variables ===
+    data: The integer value of this parameter.
+    """
+    data: float
+
+    def __init__(self, name: str, msg: str, validations: List[
+        iv.Validation]) -> None:
+        """Initialises the variable to the given values."""
+        valids = validations[:]
+        valids.insert(0, iv.VALID_FLOAT)
+        super().__init__(name, msg, valids)
+
+    def get_python_variable_string(self) -> str:
+        """Returns the formatted integer value."""
+        return self.name + ' = ' + str(self.data)
+
+    def query_user(self) -> None:
+        """Fetch an integer value from the user."""
+        s = cli.prompt(self._msg, self._validations)
+        self.data = float(s)
+
+
+
 class TimeParam(SimpleParameter):
     """Responsible for storing and fetching time parameters.
 
@@ -164,13 +190,13 @@ class AdapterParam(SimpleParameter):
         super().__init__(name, msg, valids)
 
     def __str__(self) -> str:
-        return ''.join(['(', repr(self.forward), ', ', repr(self.reverse),
-                        ')'])
+        return ''.join(['AdapterPair(', repr(self.forward), ', ',
+                        repr(self.reverse), ')'])
 
     def get_python_variable_string(self) -> str:
         """Returns the formatted integer value."""
         return ''.join([
-            self.name, ' = ', repr(self.data)
+            self.name, ' = AdapterPair', repr(self.data),
         ])
 
     def query_user(self) -> None:
@@ -224,16 +250,20 @@ class PathParam(SimpleParameter):
     data: The value of this parameter.
     """
     data: Path
+    default: Path
 
     def __init__(self, name: str, msg: str, validations: List[
-        iv.Validation],
-                 data: Path = None) -> None:
+        iv.Validation], data: Path = None, default: Path = None) -> None:
         """Initialises the variable to the given values."""
         valids = validations[:]
         valids.insert(0, iv.VALID_PATH)
-        super().__init__(name, msg, valids)
         if data:
             self.data = data
+        if default:
+            self.default = default
+        else:
+            self.default = Path(os.path.dirname(__file__)).parent
+        super().__init__(name, msg, valids)
 
     def get_python_variable_string(self) -> str:
         """Returns the formatted integer value."""
@@ -244,8 +274,8 @@ class PathParam(SimpleParameter):
     def query_user(self) -> None:
         """Fetch an integer value from the user."""
         s = cli.prompt(self._msg, self._validations)
-        if s == 'DIR':
-            self.data = Path(os.path.dirname(__file__)).parent
+        if 'DIR' in s:
+            self.data = self.default
         else:
             self.data = Path(s)
 

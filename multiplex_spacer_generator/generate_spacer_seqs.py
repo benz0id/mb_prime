@@ -189,6 +189,9 @@ def get_best_heterogeneity_spacer_seqs_threadable(
     dummy_primer_pool = get_new_primer_pool(f_5p, f_binding, r_5p, r_binding,
                         f_spacers, r_spacers)
     for seq in dummy_primer_pool:
+        print(len(seq))
+
+    for seq in dummy_primer_pool:
         if len(seq) > 60:
             raise ValueError('All sequences must be shorten than 60 bp in order'
                              ' to optimise dimer structure.')
@@ -246,6 +249,6 @@ def get_best_heterogeneity_spacer_seqs_threadable(
     max_set_data = max(rslts, key=lambda a: a[0])
     max_set = max_set_data[1]
 
-    log.info('Returning Max Set: ' + max_set + '\n' + str(max_set))
+    log.info('Returning Max Set: ' + str(max_set_data) + '\n' + str(max_set))
 
     return max_set

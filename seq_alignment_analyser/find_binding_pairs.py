@@ -108,8 +108,8 @@ class FindBindingPairs:
                  adapters: List[AdapterPair],
                  primer_params: PrimerParams, alignments_path: Path,
                  targ_mt: float, max_mt_deviance: float,
-                 do_prog_bars: bool = True, mode: str = RESTRICTED) -> \
-            None:
+                 aln_type: str = 'fasta', do_prog_bars: bool = True,
+                 mode: str = RESTRICTED) -> None:
         """Contructs all required attributes and helpers using the given
         values."""
 
@@ -145,7 +145,7 @@ class FindBindingPairs:
 
             # Parse and store MSAs.
             if msa_name not in msa_name_to_msa.keys():
-                msa = MSA(alignments_path / msa_name)
+                msa = MSA(alignments_path / msa_name, filetype=aln_type)
                 msa_name_to_msa[msa_name] = msa
                 msa_to_targets[msa] = []
             # Multiple targets on one MSA

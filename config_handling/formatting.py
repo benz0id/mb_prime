@@ -8,7 +8,7 @@ InclRange = collections.namedtuple('InclRange', ['start', 'stop'])
 
 AdapterPair = collections.namedtuple('AdapterPair', ['forward', 'reverse'])
 
-TimeSpec = collections.namedtuple("TimeSpec", ['hours', 'seconds', 'minutes'])
+TimeSpec = collections.namedtuple("TimeSpec", ['hours', 'minutes', 'seconds'])
 
 Sites = Tuple[int, ...]
 

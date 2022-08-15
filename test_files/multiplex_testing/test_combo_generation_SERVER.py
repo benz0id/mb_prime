@@ -1,5 +1,6 @@
 import os
 
+from hetero_spacer_generator.primer_tools import hms
 from test_files.fixtures_and_helpers import configure_log_out, gen_random_seq, \
     TEST_PATH, \
     TEST_OUTPUT_PATH, add_stdout_handler
@@ -8,10 +9,6 @@ import pathlib
 import pytest
 
 add_stdout_handler()
-
-def hms(hours: int, minutes: int, seconds: int) -> int:
-    """Converts the input to seconds."""
-    return 3600 * hours + 60 * minutes + seconds
 
 MAX_NUM_PROCS = 8
 TOTAL_RUNTIME = hms(15, 0, 0)

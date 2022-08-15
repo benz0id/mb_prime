@@ -147,9 +147,16 @@ class FindSpacerCombo:
         else:
             incr_size = len(self._seqs)
 
+        already_searched_lens = []
+
         # For every possible total spacer length, starting at the maximum,
         # decreasing by the number of seqs in the alignment each time.
-        while 0 <= total_len <= max_total_len:
+        while True:
+            total_len = max((0, total_len))
+
+            if total_len in already_searched_lens:
+                break
+            already_searched_lens.append(total_len)
             log.info('    === Beginning Search for Spacer Combo at Length ' +
                      str(total_len) + ' ===    ')
             log.info('Generating Threads.')

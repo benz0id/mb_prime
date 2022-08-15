@@ -40,9 +40,6 @@ class BindingPair:
     target_name: The name of target captured by this binding pair.
 
     # Primer Params
-    f_seq: The sequence of the forward primer.
-    r_seq: The sequence of the reverse primer.
-
     f_mt: The melting temp of the forward binding sequence.
     r_mt: The melting temp of the reverse binding sequence.
 
@@ -60,9 +57,6 @@ class BindingPair:
     """
     msa: MSA
     target_name: str
-
-    f_seq: str
-    r_seq: str
 
     f_5p: int
     r_5p: int

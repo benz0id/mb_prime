@@ -50,6 +50,16 @@ def valid_int(s: str) -> bool:
         return False
     return True
 
+
+def valid_float(s: str) -> bool:
+    """Returns whether <s> can be interpreted as a float."""
+    try:
+        f = float(s)
+    except ValueError:
+        return False
+    return True
+
+
 def distance_gt(group1: str, group2: List[int], min_distance: int) -> bool:
     """Given that group1 is a validly formatted list of integers, tests that
     the difference between any two values in <group1> and <group2> is no less
@@ -179,6 +189,8 @@ VMT_S = 'Unknown MSA type. Known types include: ' + \
 VALID_MSA_TYPE = Validation(valid_msa_type, VMT_S)
 
 VALID_INT = Validation(valid_int, 'Not a properly formatted integer.')
+
+VALID_FLOAT = Validation(valid_float, 'Not a properly formatted float.')
 
 VALID_RANGE = Validation(is_valid_range, "Enter a properly formatted range. "
                          + fmt.RANGE)

@@ -31,6 +31,11 @@ class Primer(Seq):
         super().__init__(seq)
 
 
+def hms(hours: int, minutes: int, seconds: int) -> int:
+    """Converts the input to seconds."""
+    return 3600 * hours + 60 * minutes + seconds
+
+
 class HeteroSeqTool(ABC):
     """A class that handles heterogeneity spacers.
 

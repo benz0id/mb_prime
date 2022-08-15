@@ -57,6 +57,9 @@ class PrimerPool:
         """Returns all the sequences in this pool 5'-3'"""
         return self._f_primers[:] + self._r_primers[:]
 
+    def add_targ_names(self, targ_names: List[str]) -> None:
+        self._targ_names = targ_names[:]
+
     def __str__(self) -> str:
         s = ''
         for i in range(len(self._f_primers)):
