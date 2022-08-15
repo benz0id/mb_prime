@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Iterator
 import primer3
 from hetero_spacer_generator.primer_tools import MBPrimer
 
@@ -77,9 +77,9 @@ class PrimerPool:
             )
         return s
 
-    def __iter__(self) -> List[str]:
+    def __iter__(self) -> Iterator[str]:
         f_seqs = [str(primer) for primer in self._f_primers]
         r_seqs = [str(primer) for primer in self._r_primers]
-        return f_seqs + r_seqs
+        return (f_seqs + r_seqs).__iter__()
 
 
