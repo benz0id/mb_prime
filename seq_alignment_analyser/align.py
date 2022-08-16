@@ -96,13 +96,20 @@ class MSA:
     _percent_spacer: List[float]
     _percent_missed: List[float]
 
-    def __init__(self, filepath: Path, window_size: int = 5,
-                 filetype: str = 'fasta'):
+    def __init__(self, filepath: Path = Path(''), window_size: int = 5,
+                 filetype: str = 'fasta', seqs: List[str] = None):
         """Initialises this MSA using information sored in <filepath>."""
-        self.filename = os.path.basename(filepath)
-        self._window_size = window_size
-        self._parse_MSA(filepath, filetype)
+        if filepath:
+            self.filename = os.path.basename(filepath)
+            self._parse_MSA(filepath, filetype)
+        elif seqs:
+            self._seqs = seqs[:]
+        else:
+            raise ValueError('This class must be initialised from an MSA file'
+                             ' or a list of sequences.')
         self._parse_consensus_attributes()
+        self._window_size = window_size
+
 
     def __hash__(self) -> int:
         """Hash is dependent on filename."""
