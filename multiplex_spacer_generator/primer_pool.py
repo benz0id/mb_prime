@@ -79,9 +79,9 @@ class PrimerPool:
 
             s += ''.join(
                 [
-                    '> ', targ_name, ' F', ind, '\n',
+                    '>', targ_name, '_F', ind, '\n',
                     str(self._f_primers[i]), '\n',
-                    '> ', targ_name, ' R', ind, '\n',
+                    '>', targ_name, '_R', ind, '\n',
                     str(self._r_primers[i]), '\n'
                 ]
             )

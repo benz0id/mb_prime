@@ -132,7 +132,11 @@ def main():
 
     binding_set.add_targ_names(targ_names)
 
+    print('Binding Parameters:\n')
+
     print(binding_selection_str(best_binding_params))
+
+    print('Full Primer Sequences:\n')
 
     print(binding_set)
 
@@ -150,7 +154,7 @@ def binding_selection_str(binding_params: List[BindingPair]) -> str:
                 '\n',
                 '\t Sequence: ', bp.get_f_seq(), '\n',
                 'Reverse Binding Region: \n',
-                '\t Bounds: ', str(bp.r_5p), ' - ', str(bp.r_5p + bp.r_len - 1),
+                '\t Bounds: ', str(bp.r_5p - bp.r_len + 1), ' - ', str(bp.r_5p),
                 '\n',
                 '\t Sequence: ', bp.get_r_seq(), '\n',
                 '\t Reverse Compliment: ', rev_comp(bp.get_r_seq()), '\n\n'

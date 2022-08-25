@@ -103,7 +103,7 @@ def get_new_config() -> str:
     hetero_region_len = param.IntParam(
         'hetero_region_len',
         'Enter the number of bases to be include in the heterogeneity region.',
-        [iv.Validation(lambda s: iv.all_in_range(s, 0, binding_region_len.data.stop),
+        [iv.Validation(lambda s: iv.all_in_range(s, 0, binding_region_len.data.stop + 1),
                        'Please enter a reasonable length (0 <= d <= max_binding_region_len).')])
 
     max_spacer_length = param.IntParam(
