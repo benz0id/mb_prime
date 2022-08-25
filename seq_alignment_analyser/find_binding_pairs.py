@@ -2,13 +2,13 @@ import collections
 import logging
 from pathlib import Path
 from typing import List, Union
-
+from copy import deepcopy
 import config_handling.command_line_tools as cli
 import heapq
 import tqdm
 
 from config_handling.formatting import TargetRegionInfo, AdapterPair, \
-    PrimerParams
+    PrimerParams, to_range, incl_to_range
 from seq_alignment_analyser.align import MSA
 from seq_alignment_analyser.best_primers import HeteroSeqIterator, \
     BindingPairParams
@@ -81,6 +81,10 @@ class FindBindingPairs:
 
     _mode: Whether to scan all possible lengths at the same time.
     _max_lens: Boolean representation of mode.
+
+    _binding_lens: Allowable binding lengths.
+
+
     """
 
     _iterator_manager: BindingIteratorManager
@@ -92,6 +96,8 @@ class FindBindingPairs:
 
     _cur_target: str
     _cur_msa: MSA
+
+    _binding_lens: range
 
     _bp_heap: List[BindingPair]
 
@@ -129,6 +135,8 @@ class FindBindingPairs:
 
             ]
         ))
+
+        self._binding_lens = incl_to_range(primer_params.binding_region_len)
 
         self._show_prog_bar = do_prog_bars
         self._mode = mode
@@ -187,9 +195,34 @@ class FindBindingPairs:
 
         # See whether a significant number of binding pairs were missed as a
         # consequence of melting temp
+
+        bp_heap_cache = []
         while self.too_many_missed(iterator) and not self._max_lens:
-            self._adjust_iterator(iterator)
+            if not self._adjust_iterator(iterator):
+                break
             self.get_n_most_conserved_valid(NUM_TO_KEEP, iterator)
+            bp_heap_cache.append(deepcopy(self._bp_heap))
+
+        # If the last heap is empty, try using the previous heaps.
+        while not self._bp_heap and bp_heap_cache:
+            self._bp_heap = bp_heap_cache.pop(-1)
+
+        if not self._bp_heap:
+            if not self._max_lens:
+                log.warning(
+                    'Failed to find a valid binding pair. Trying again with all'
+                    ' lengths at once. Try using less restrictive parameters.')
+                self._iterator_manager.max_lens(iterator)
+                self._max_lens = True
+                bp = self.get_best_binding_pair(iterator)
+                self._max_lens = False
+                return bp
+
+            raise ValueError(
+                'Failed to find binding regions within melting temp range '
+                'and/or with a GC clamp present. Try entering more permissive '
+                'values, or adjusting target melting temp. See logs for more '
+                'detailed description of failure.')
 
         self._bp_heap = sorted(self._bp_heap)
         self._bp_heap.reverse()
@@ -292,7 +325,7 @@ class FindBindingPairs:
             heapq.heappop(self._bp_heap)
 
     def _adjust_iterator(self, iterator: HeteroSeqIterator) \
-            -> None:
+            -> bool:
         """Adjusts the iterator to include binding sequences closer to the
         target melting temp."""
         adj_f = False
@@ -324,6 +357,16 @@ class FindBindingPairs:
         f_len = cur_f_len + get_change(adj_f, f_high)
         r_len = cur_r_len + get_change(adj_r, r_high)
 
+        # Make sure that adjustments do not exceed maximum lengths.
+        if f_len not in self._binding_lens:
+            f_len = cur_f_len
+
+        if r_len not in self._binding_lens:
+            r_len = cur_r_len
+
+        if f_len == cur_f_len and r_len == cur_r_len:
+            return False
+
         log.info(''.join(
             [
                 'Retrying run with modified lengths.\n',
@@ -335,6 +378,7 @@ class FindBindingPairs:
 
         self._iterator_manager.update_iterator_primer_size(iterator, f_len,
                                                            r_len)
+        return True
 
     def get_n_most_conserved_valid(self, n: int, iterator: HeteroSeqIterator) \
             -> None:

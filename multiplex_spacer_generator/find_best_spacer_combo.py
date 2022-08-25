@@ -1,11 +1,12 @@
 import logging
 from time import sleep, time
-from typing import List, Tuple, Iterable
-from multiprocessing import Process, Manager, Queue
+from typing import List, Tuple, Iterable, Callable, Dict
+from multiprocessing import Manager, Queue
 from tqdm import tqdm
+from multiplex_spacer_generator.exceptional_process import Process
 from multiplex_spacer_generator.binding_align import SpacerCombo, \
     compute_column_score, incr_repr, NumpyBindingAlign, smart_incr, \
-    get_min_pos_repr, get_time_string
+    get_min_pos_repr, get_time_string, sample_runtime
 from multiplex_spacer_generator.get_max_spacer_combo import \
     get_max_spacer_combo, NOTHING_FOUND_MSG
 import heapq
@@ -14,6 +15,7 @@ TICK_SPEED = 1000
 MIN_PER_PROCESS = 1000
 MAX_BEFORE_RANDOM = 12 ** 8
 SHORT_TIME_THRESHOLD = 5 * 60
+CONST_TIME_FACTOR = 5
 
 
 def test_combo(spacer_combo: SpacerCombo, seqs: list[str],
@@ -66,17 +68,18 @@ class FindSpacerCombo:
     _do_random_generation: When number of possible spacer combos becomes too
         large, threads are instructed to randomly select them rather than follow
         a defined set.
-
+    _do_max_spacer_size: Whether to set a limit on the spacer size.
+    _max_total_size: The derived maximum possible size of the spacers.
 
     # Runtime Storage.
     _best_combos: A heap of the best spacers found, sorted by total length.
+
+    _seen_lens: The lengths already iterated over.
 
     # Multiprocessing
     _threads: Processes spawned by this class.
     _thread_manager: Manages communication between spawned processes.
     _thread_out_queue: Receives information from the spawned processes.
-
-
 
     """
 
@@ -90,10 +93,13 @@ class FindSpacerCombo:
     # Derived parameters.
     _end_time: int  # Seconds since epoch.
     _max_score: int
+    _do_max_spacer_size: bool
     _do_random_generation: int
+    _max_total_size: int
 
     # Runtime Storage.
     _best_combos: List[Tuple[int, SpacerCombo]]
+    _seen_lens: Dict[int, bool]
 
     # Multiprocessing
     _threads: List[Process]
@@ -109,7 +115,12 @@ class FindSpacerCombo:
         self._max_threads = max_threads
         self._seqs = [seq for seq in seqs]
         self._hetero_region_size = hetero_region_size
+        self._max_spacer_size = max_spacer_size
+        self._do_max_spacer_size = max_spacer_size > -1
         self._min_per_process = min_per_process
+        self._max_total_size = len(self._seqs) * self._hetero_region_size
+        if self._do_max_spacer_size:
+            self._max_total_size = len(self._seqs) * max_spacer_size
 
         self._end_time = int(time()) + runtime
         self._max_score = compute_column_score([len(self._seqs), 0, 0, 0, 0],
@@ -127,36 +138,97 @@ class FindSpacerCombo:
                         'SPACER QUALITY MAY BE LOWER')
 
         self._best_combos = []
-
+        self._seen_lens = {}
         self._threads = []
         self._thread_manager = Manager()
         self._thread_out_queue = Manager().Queue()
+        self._iter_queue = Queue()
+
+    def _complete_iter_next(self, cur_len: int, success: bool) -> int:
+        """Allows for complete iteration of all spacers."""
+        if self._iter_queue.empty():
+            # Add -1 to queue to trigger termination.
+            for total_length in range(self._max_total_size, -2, -1):
+                self._iter_queue.put(total_length)
+        return self._iter_queue.get()
+
+    def _bottom_start_iter_next(self, cur_len: int, success: bool) -> int:
+        """Allows for complete iteration of all spacers."""
+        if success:
+            return -1
+
+        if self._iter_queue.empty():
+            # Add -1 to queue to trigger termination.
+            for total_length in range(0, self._max_total_size):
+                self._iter_queue.put(total_length)
+            self._iter_queue.put(-1)
+        return self._iter_queue.get()
+
+    def _skip_iter(self, cur_len: int, success: bool) -> int:
+        """Allows for complete iteration of all spacers."""
+        self._seen_lens[cur_len] = success
+
+        if not success and cur_len + 1 not in self._seen_lens.keys():
+            return cur_len + 1
+
+        if self._iter_queue.empty():
+            # Add -1 to queue to trigger termination.
+            for total_length in range(self._max_total_size, -2, - len(self._seqs)):
+                self._iter_queue.put(total_length)
+            self._iter_queue.put(-1)
+        return self._iter_queue.get()
+
+    def get_iteration_method(self) -> Callable[[int, bool], int]:
+        """Gets a method that allows for iteration through primer sizes."""
+        seconds_per_op = sample_runtime(self._seqs, self._hetero_region_size,
+                                        10000 // (len(self._seqs) ** 2),
+                                        silent=True)
+        num_ops = len(self._seqs) ** self._hetero_region_size
+        if self._do_max_spacer_size:
+            num_ops = len(self._seqs) ** self._max_spacer_size
+
+        time_estimate = seconds_per_op * num_ops // self._max_threads
+        allowed_runtime = self._end_time - int(time())
+
+        log.info(''.join([
+            '\nAllotted Runtime: ', get_time_string(allowed_runtime), '\n',
+            'Estimated completion runtime: ', get_time_string(time_estimate),
+            '\n',
+        ]))
+
+        if self._do_random_generation or self._do_max_spacer_size:
+            log.info('Scanning through all possible spacers, starting with the'
+                     ' largest.')
+            return self._complete_iter_next
+
+        if time_estimate < allowed_runtime:
+            # Scan all heterogeneity spacers in their entirety.
+            log.info('Scanning through all possible spacers, starting with the'
+                     ' largest.')
+            return self._complete_iter_next
+
+        elif time_estimate * CONST_TIME_FACTOR < allowed_runtime:
+            # Start at least length and work upwards. Terminate on first
+            # valid combo.
+            log.info('Scanning spacers starting at minimum length and working '
+                     'upwards.')
+            return self._bottom_start_iter_next
+        else:
+            # Start at max spacer and work downwards.
+            log.info('Working downwards from biggest spacer. Returning best '
+                     'spacer found.')
+            return self._skip_iter
 
     def run(self) -> SpacerCombo:
         """Runs for the specified amount of time, returning the best spacer
         combo found."""
-        max_total_len = len(self._seqs) * self._hetero_region_size
-        if self._end_time - time() < SHORT_TIME_THRESHOLD and \
-                not self._do_random_generation:
-            total_len = max_total_len
-        else:
-            total_len = (max_total_len // 3) * 2
-
-        if self._do_random_generation:
-            incr_size = len(self._seqs) // 5
-        else:
-            incr_size = len(self._seqs)
-
-        already_searched_lens = []
+        get_next_len = self.get_iteration_method()
 
         # For every possible total spacer length, starting at the maximum,
         # decreasing by the number of seqs in the alignment each time.
-        while True:
-            total_len = max((0, total_len))
+        total_len = get_next_len(-2, True)
+        while total_len >= 0:
 
-            if total_len in already_searched_lens:
-                break
-            already_searched_lens.append(total_len)
             log.info('    === Beginning Search for Spacer Combo at Length ' +
                      str(total_len) + ' ===    ')
             log.info('Generating Threads.')
@@ -164,11 +236,8 @@ class FindSpacerCombo:
             log.info('Starting Threads.')
             self._start_threads()
 
-            # Couldn't find spacer combo.
-            if not self._wait_for_result_or_time_expiry():
-                total_len += incr_size // 3
-            else:
-                total_len -= incr_size
+            # Try to find spacer combo.
+            success = self._wait_for_result_or_time_expiry()
             if self._time_expired():
                 log.info('Stopping search for spacer combos.')
                 break
@@ -177,10 +246,14 @@ class FindSpacerCombo:
                 str(total_len) + ' complete.\nTime Remaining: ' +
                          get_time_string(self._end_time - time()))
 
-        if not self._best_combos:
+            total_len = get_next_len(total_len, success)
+
+        if not self._best_combos and self._time_expired():
             raise RuntimeError('Failed to find a primer set in the allotted '
-                               'time. Try allotting more time or entering a '
-                               'less complicated input.')
+                               'time.')
+        elif not self._best_combos:
+            raise RuntimeError('Failed to find a primer set, despite completing'
+                               ' the iteration process.')
 
         log.info('Returning the best found combo found: ' +
                  str(self._best_combos[0]))
@@ -198,6 +271,7 @@ class FindSpacerCombo:
 
         while continuation_permitted:
             tick_wait()
+            self.check_processes_for_errors()
 
             # Handle output from child procs.
             while not self._thread_out_queue.empty():
@@ -284,7 +358,8 @@ class FindSpacerCombo:
             thread = Process(target=get_max_spacer_combo,
                              args=(binding_align, self._thread_out_queue,
                                    num_to_iter, self._max_score,
-                                   self._do_random_generation))
+                                   self._do_random_generation,
+                                   self._max_spacer_size))
             self._threads.append(thread)
             thread_num += 1
 
@@ -376,6 +451,12 @@ class FindSpacerCombo:
         log.info('Time spent getting thread params:' + get_time_string(td))
 
         return rtrn
+
+    def check_processes_for_errors(self) -> None:
+        for proc in self._threads:
+            if proc.exception:
+                error, traceback = proc.exception
+                print(traceback)
 
 
 def combo_str(spacers: SpacerCombo, seqs: List[str]) -> str:

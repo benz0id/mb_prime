@@ -1,14 +1,19 @@
 from typing import List, Tuple
 
 import primer3
-from primer3 import calcTm, calcHeterodimer
+
+from hetero_spacer_generator.sequence_tools import get_p3_adapter_float
 from math import ceil
 from statistics import mean
 from .align import MSA
 from .sequence_management import BindingPair, PrimerPartsManager
 
 GC_ZONE_SIZE = 2
-NUM_TO_COLLECT = 1/4
+NUM_TO_COLLECT = 1 / 4
+
+primer3_adapter = get_p3_adapter_float()
+calc_dimer = lambda a, b: primer3_adapter.calc_heterodimer_score(a, b)
+calc_tm = primer3.calcTm
 
 
 class ScoreBindingPair:
@@ -41,43 +46,54 @@ class ScoreBindingPair:
         self._melting_temps = [targ_mt]
 
         self._weight_dis_map = {}
-        for i in range(1, 101):
+        for i in range(5, 101):
             self._weight_dis_map[i] = \
-                self.get_conservation_weight_distribution(i)
+                self.get_conservation_weight_distribution_last_5(i)
 
     def add_bp(self, bp: BindingPair) -> None:
         """Adds the given binding pair to this classes list of considered
         binding pairs."""
-        self._melting_temps.append(primer3.calcTm(bp.get_f_seq()))
-        self._melting_temps.append(primer3.calcTm(bp.get_r_seq()))
+        self._melting_temps.append(calc_tm(bp.get_f_seq()))
+        self._melting_temps.append(calc_tm(bp.get_r_seq()))
 
-    def get_conservation_weight_distribution(self, len: int):
-        """Returns the weight array for a sequence of <len>."""
 
-        base_weight = 1 / len
+    def get_conservation_weight_distribution_last_5(self, len: int) \
+            -> Tuple[float]:
+        """Returns the weight array for a sequence of <len>.
 
-        def weight_fxn(pos: int) -> float:
-            """Gets the weight of a given base at pos bases from the most 5'
-            base."""
-            adjustment_factor = 1 - (1 / 2) ** (6 * (pos + 1) / (len - 10))
-            return base_weight * adjustment_factor
+        Gives the last five bases increased weight with more 3' bases given more
+        weight.
 
-        # Calculate raw weights.
-        weights = []
+        first <len> - 5 bases given uniform weight.
 
-        for pos in range(len - 10):
-            weights.append(weight_fxn(pos))
+        Last 5 bases given weight according to:
+            https://www.desmos.com/calculator/zg5iklewtq
+        """
+        assert len >= 5
 
-        for pos in range(-10, 0):
-            weights.append(base_weight)
+        last_5_weight = 0.5
+        first_bases_weight = 0.5
 
-        # Adjust so that the sum = 1
-        total = sum(weights)
-        adj = 1 / total
-        for i, weight in enumerate(weights):
-            weights[i] = weight * adj
+        if len <= 15:
+            adj_fac = (len - 5) / 10
+            last_5_weight *= 2 - adj_fac
+            first_bases_weight *= adj_fac
 
-        return tuple(weights)
+        # Determines the relative weight at each of the last
+        distribution_function = lambda x: ((x + 3) / 6) ** (x + 3) + 1
+        last_5_dist = [distribution_function(x) for x in range(0, 5)]
+        adj = last_5_weight / sum(last_5_dist)
+        last_5_dist = [adj * weight for weight in last_5_dist]
+
+        n = (len - 5)
+        if n:
+            first_n_dist = [first_bases_weight / n] * n
+        else:
+            first_n_dist = []
+
+        assert 0.9999999 <= sum(first_n_dist + last_5_dist) <= 1.000001
+
+        return tuple(first_n_dist + last_5_dist)
 
     def get_weighted_conservation(self, bp: BindingPair) -> Tuple[float, float]:
         """Returns the weighted conservation. Gives an elevated weighting to the
@@ -91,7 +107,7 @@ class ScoreBindingPair:
         return f_cons, r_cons
 
     def get_weighted_seq_conservation(self, five_p_ind: int, length: int,
-                                 rev: bool, msa: MSA) -> float:
+                                      rev: bool, msa: MSA) -> float:
         """Returns the weighted conservation of the given region.
 
         The 10 most 3' bases are given maximal, identical weights, and the
@@ -116,7 +132,7 @@ class ScoreBindingPair:
         r_end = bp.r_5p + 1
 
         total_cons = bp.msa.get_total_conservation(f_start, f_end) + \
-            bp.msa.get_total_conservation(r_start, r_end)
+                     bp.msa.get_total_conservation(r_start, r_end)
 
         return total_cons / (bp.f_len + bp.r_len)
 
@@ -128,14 +144,14 @@ class ScoreBindingPair:
         f_dev = self.get_mt_deviance(f_seq)
         r_dev = self.get_mt_deviance(r_seq)
 
-        pair_dev = abs(primer3.calcTm(f_seq) - primer3.calcTm(r_seq))
+        pair_dev = abs(calc_tm(f_seq) - calc_tm(r_seq))
 
         return f_dev, r_dev, pair_dev
 
     def get_mt_deviance(self, seq: str) -> float:
         """Gets the maximal deviance from the melting temps among the already
         selected primers."""
-        r_mt = primer3.calcTm(seq)
+        r_mt = calc_tm(seq)
 
         # Get maximum deviance.
         max_dev = 0
@@ -230,12 +246,12 @@ class ScoreBindingPair:
 
         dgs = []
         for seq in seqs:
-            dgs.append(calcHeterodimer(bp.get_f_seq(), seq).dg)
-            dgs.append(calcHeterodimer(bp.get_r_seq(), seq).dg)
+            dgs.append(calc_dimer(bp.get_f_seq(), seq))
+            dgs.append(calc_dimer(bp.get_r_seq(), seq))
 
-        dgs.append(calcHeterodimer(bp.get_f_seq(), bp.get_f_seq()).dg)
-        dgs.append(calcHeterodimer(bp.get_r_seq(), bp.get_r_seq()).dg)
-        dgs.append(calcHeterodimer(bp.get_r_seq(), bp.get_f_seq()).dg)
+        dgs.append(calc_dimer(bp.get_f_seq(), bp.get_f_seq()))
+        dgs.append(calc_dimer(bp.get_r_seq(), bp.get_r_seq()))
+        dgs.append(calc_dimer(bp.get_r_seq(), bp.get_f_seq()))
         return dgs
 
     def get_5p_seqs_dgs(self, bp: BindingPair) -> List[float]:
@@ -244,8 +260,8 @@ class ScoreBindingPair:
         seqs = self._primer_parts.get_all_5p()
         dgs = []
         for seq in seqs:
-            dgs.append(calcHeterodimer(bp.get_f_seq(), seq).dg)
-            dgs.append(calcHeterodimer(bp.get_r_seq(), seq).dg)
+            dgs.append(calc_dimer(bp.get_f_seq(), seq))
+            dgs.append(calc_dimer(bp.get_r_seq(), seq))
         return dgs
 
     def has_gc_clamp(self, f_seq: str, r_seq: str) -> bool:
@@ -257,6 +273,3 @@ class ScoreBindingPair:
         r_gc = 'G' in r_gc_zone or 'C' in r_gc_zone
 
         return f_gc and r_gc
-
-
-

@@ -1,10 +1,10 @@
 import abc
 
 from Bio.Seq import Seq
-from typing import List, Tuple, Iterable, Callable
+from typing import List, Tuple, Iterable, Callable, Union
 from hetero_spacer_generator.defaults import DEGEN_TO_POSSIBLE
 import primer3 as p3
-
+PRIMER3_LENGTH_LIMIT = 60
 
 def order_seqs(seq1: Seq, seq2: Seq) -> Tuple[Seq, Seq, bool]:
     """Returns a tuple of two seqs where len(tuple[0]) >= len(tuple[1]).
@@ -191,6 +191,33 @@ def compare_bases_degenerate(b1: str, b2: str) -> bool:
     return False
 
 
+def seq_len_check(seq1: Union[str, Seq], targ_len: int = PRIMER3_LENGTH_LIMIT) -> str:
+    """Ensures that the two sequence is under the <targ_len>. Will
+    remove bases from their 5' ends accordingly to reach that target."""
+    og_seq = seq1
+    seq1 = str(seq1)
+    if len(seq1) > targ_len:
+        dif = len(seq1) - targ_len
+        seq1 = seq1[dif:]
+        assert len(seq1) == targ_len
+
+    assert len(seq1) <= targ_len
+
+    if not seq1 == og_seq[-min(60, len(og_seq)):]:
+        assert False
+
+    return seq1
+
+
+def seq_len_check_2(seq1: Union[str, Seq], seq2: Union[str, Seq],
+                    targ_len: int = PRIMER3_LENGTH_LIMIT) -> Tuple[str, str]:
+    """Ensures that the two given sequences are under the <targ_len>. Will
+    remove bases from their 5' ends accordingly to reach that target."""
+    seq1, seq2 = str(seq1), str(seq2)
+
+    return seq_len_check(seq1, targ_len), seq_len_check(seq2, targ_len)
+
+
 class P3Adapter(abc.ABC):
     """Adapts Primer3 Methods to be compatible with other objects used in this
     program."""
@@ -231,23 +258,30 @@ class P3AdapterFloat(P3Adapter):
         self._counting = False
         return self._count
 
-    def calc_hairpin_score(self, primer: Seq) -> float:
+    def calc_hairpin_score(self, primer: Union[str, Seq]) -> float:
         """Returns the free energy of the most stable hairpin in the primer"""
+        primer = seq_len_check(primer)
         if self._counting:
             self._count += 1
-        return p3.calcHairpin(str(primer)).dg
+        return p3.calcHairpin(primer).dg
 
-    def calc_homodimer_score(self, primer: Seq) -> float:
+    def calc_homodimer_score(self, primer: Union[str, Seq]) -> float:
         """Returns the free energy of the most stable hairpin in the primer"""
+        primer = seq_len_check(primer)
         if self._counting:
             self._count += 1
-        return p3.calcHomodimer(str(primer)).dg
+        return p3.calcHomodimer(primer).dg
 
-    def calc_heterodimer_score(self, primer1: Seq, primer2: Seq) -> float:
+    def calc_heterodimer_score(self, primer1: Union[str, Seq], primer2: Union[str, Seq]) -> float:
         """Returns the free energy of the most stable hairpin in the primer"""
+        primer1, primer2 = seq_len_check_2(primer1, primer2)
+
         if self._counting:
             self._count += 1
-        return p3.calcHeterodimer(str(primer1), str(primer2)).dg
+        score = p3.calcHeterodimer(primer1, primer2).dg
+        # if score > 0:
+        #     print(primer1, primer2)
+        return score
 
 
 class P3AdapterInt(P3Adapter):
@@ -270,23 +304,26 @@ class P3AdapterInt(P3Adapter):
         self._counting = False
         return self._count
 
-    def calc_hairpin_score(self, primer: Seq) -> int:
+    def calc_hairpin_score(self, primer: Union[str, Seq]) -> int:
         """Returns the free energy of the most stable hairpin in the primer"""
+        primer = seq_len_check(primer)
         if self._counting:
             self._count += 1
-        return int(p3.calcHairpin(str(primer)).dg) * - 1
+        return int(p3.calcHairpin(primer).dg) * - 1
 
-    def calc_homodimer_score(self, primer: Seq) -> int:
+    def calc_homodimer_score(self, primer: Union[str, Seq]) -> int:
         """Returns the free energy of the most stable hairpin in the primer"""
+        primer = seq_len_check(primer)
         if self._counting:
             self._count += 1
-        return int(p3.calcHomodimer(str(primer)).dg) * - 1
+        return int(p3.calcHomodimer(primer).dg) * - 1
 
-    def calc_heterodimer_score(self, primer1: Seq, primer2: Seq) -> int:
+    def calc_heterodimer_score(self, primer1: Union[str, Seq], primer2: Union[str, Seq]) -> int:
         """Returns the free energy of the most stable hairpin in the primer"""
+        primer1, primer2 = seq_len_check_2(primer1, primer2)
         if self._counting:
             self._count += 1
-        return int(p3.calcHeterodimer(str(primer1), str(primer2)).dg) * - 1
+        return int(p3.calcHeterodimer(primer1, primer2).dg) * - 1
 
 
 primer3_adapter_int = P3AdapterInt()
@@ -295,12 +332,10 @@ primer3_adapter_int = P3AdapterInt()
 def get_p3_adapter_int() -> P3AdapterInt:
     return primer3_adapter_int
 
+primer3_adapter_float = P3AdapterFloat()
 
-primer3_adapter_int = P3AdapterInt()
-
-
-def get_p3_adapter_int() -> P3AdapterInt:
-    return primer3_adapter_int
+def get_p3_adapter_float() -> P3AdapterFloat:
+    return primer3_adapter_float
 
 
 class SeqAnalyzer:

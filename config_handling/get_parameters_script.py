@@ -12,7 +12,11 @@ from test_files.fixtures_and_helpers import ALIGNMENTS_PATH
 CONFIG_PATH = Path(os.path.dirname(__file__)).parent / 'configs'
 
 HEADER = ('from config_handling.formatting import *\n'
-          'from pathlib import Path\n')
+          'from pathlib import Path\n'
+          '\n'
+          'verbose = False\n'
+          '\n'
+          'min_spacer_length = False\n')
 
 AUTOFILL = True
 
@@ -101,6 +105,15 @@ def get_new_config() -> str:
         'Enter the number of bases to be include in the heterogeneity region.',
         [iv.Validation(lambda s: iv.all_in_range(s, 0, binding_region_len.data.stop),
                        'Please enter a reasonable length (0 <= d <= max_binding_region_len).')])
+
+    max_spacer_length = param.IntParam(
+        'max_spacer_length',
+        'Enter the maximum length of any spacer to be included in a primer in '
+        'order to achieve heterogeneity. Setting this too short will often '
+        'result in a failure to find valid spacers.',
+        [iv.Validation(
+            lambda s: iv.all_in_range(s, 0, hetero_region_len.data),
+            'Please enter a reasonable length (0 <= d <= hetero_region_len).')])
 
     # Extract variables required for target region selection from the above
     # params.
@@ -217,9 +230,9 @@ def get_new_config() -> str:
     basic_params = [
         alignments_path, alignment_type, target_region_len,
         binding_region_len, ideal_binding_size, max_binding_target_len,
-        hetero_region_len, target_melting_temp, max_mt_deviance,
-        primer_primer_distance, primer_target_distance, runtime_estimate,
-        num_threads
+        hetero_region_len, max_spacer_length, target_melting_temp,
+        max_mt_deviance, primer_primer_distance, primer_target_distance,
+        runtime_estimate, num_threads
     ]
 
     out_str = HEADER
@@ -234,7 +247,7 @@ def get_new_config() -> str:
     with open(config_out, 'w') as outfile:
         outfile.write(out_str)
 
-    return config_name.data[:-3]
+    return config_name.data
 
 
 # Input some predetermined set of strings.
@@ -265,7 +278,7 @@ if __name__ == '__main__':
 
     # The lines to be written to the console automatically.
     to_write = [
-        'test_config',
+        'complex_test_config',
         'Y',
         'DIR',
         'fasta',
@@ -274,21 +287,42 @@ if __name__ == '__main__':
         '20',
         '126',
         '12',
+        '8',
 
-        '4',
+        '8',
         '1',
         'targ_1',
-        '247, 249',
+        '50, 60',
         '1',
         'targ_2',
-        '364, 372',
+        '130, 140',
         '1',
         'targ_3',
-        '781, 783',
+        '210, 220',
         '1',
         'targ_4',
-        '874, 897',
+        '290, 300',
+        '1',
+        'targ_5',
+        '370, 380',
+        '1',
+        'targ_6',
+        '450, 460',
+        '1',
+        'targ_7',
+        '600, 630',
+        '1',
+        'targ_8',
+        '710, 730',
 
+        'ACACTCTTTCCCTACACGACGCTCTTCCGATCT',
+        'GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT',
+        'ACACTCTTTCCCTACACGACGCTCTTCCGATCT',
+        'GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT',
+        'ACACTCTTTCCCTACACGACGCTCTTCCGATCT',
+        'GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT',
+        'ACACTCTTTCCCTACACGACGCTCTTCCGATCT',
+        'GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT',
         'ACACTCTTTCCCTACACGACGCTCTTCCGATCT',
         'GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT',
         'ACACTCTTTCCCTACACGACGCTCTTCCGATCT',
@@ -300,7 +334,7 @@ if __name__ == '__main__':
 
         '8',
         '0:5:0',
-        '60',
+        '45',
         '5',
         '0',
         '5',

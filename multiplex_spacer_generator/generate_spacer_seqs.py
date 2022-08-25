@@ -9,6 +9,7 @@ import multiprocessing as mp
 from time import time, sleep
 from statistics import mean
 from multiplex_spacer_generator.primer_pool import PrimerPool, get_all_dgs
+from multiplex_spacer_generator.exceptional_process import Process
 
 log = logging.getLogger('root')
 
@@ -26,28 +27,6 @@ NUM_ITER_BEFORE_CHECK = 2
 ALERT_EVERY = 100
 
 MIN_DG = -10000
-
-
-class Process(mp.Process):
-    def __init__(self, *args, **kwargs):
-        mp.Process.__init__(self, *args, **kwargs)
-        self._pconn, self._cconn = mp.Pipe()
-        self._exception = None
-
-    def run(self):
-        try:
-            mp.Process.run(self)
-            self._cconn.send(None)
-        except Exception as e:
-            tb = traceback.format_exc()
-            self._cconn.send((e, tb))
-            # raise e  # You can still rise this exception if you need to
-
-    @property
-    def exception(self):
-        if self._pconn.poll():
-            self._exception = self._pconn.recv()
-        return self._exception
 
 
 def gen_heterogeneity_alignment(seqs: List[str], spacers: SpacerCombo) \
@@ -153,10 +132,9 @@ def get_best_heterogeneity_spacer_seqs(
             seq_pool = get_new_primer_pool(f_5p, f_binding, r_5p, r_binding,
                                            f_spacers, r_spacers)
             seqs = [str(seq) for seq in seq_pool.get_all_seqs()]
-            struct_dgs = get_all_dgs(seqs)
+            struct_dgs = sorted(get_all_dgs(seqs), reverse=True)
 
             mean_dg = mean(struct_dgs[-num_structs_to_avg:])
-
             if mean_dg > highest_avg_dg:
                 msg = ''.join(
                     [
@@ -168,6 +146,7 @@ def get_best_heterogeneity_spacer_seqs(
                 highest_avg_dg = mean_dg
                 best_set = seq_pool
                 out_queue.put(msg)
+                out_queue.put('dgs: ' + str(struct_dgs))
 
     msg = ''.join(
         [
@@ -188,13 +167,15 @@ def get_best_heterogeneity_spacer_seqs_threadable(
     structures."""
     dummy_primer_pool = get_new_primer_pool(f_5p, f_binding, r_5p, r_binding,
                         f_spacers, r_spacers)
+    log.info('Final Primer Lengths:')
     for seq in dummy_primer_pool:
-        print(len(seq))
+        log.info('\t' + str(len(seq)))
 
     for seq in dummy_primer_pool:
         if len(seq) > 60:
-            raise ValueError('All sequences must be shorten than 60 bp in order'
-                             ' to optimise dimer structure.')
+            log.warning('Some sequences are more than 60 bp. This will result '
+                        'in lower dimer evaluation accuracy')
+            break
 
     manager = mp.Manager()
     thread_out_queue = manager.Queue()

@@ -56,11 +56,15 @@ def overlap(start1: int, stop1: int, start2: int, stop2: int,
 def any_overlap(targ1: TargetIndecies, targ2: TargetIndecies) -> str:
     """Returns whether any level of overlap exists between the two targets.
     'l' indicates that targ2 < targ1, 'h' indicates targ1 <= targ2, and
-    '' indicates no overlap or ignored overlap."""
+    '' indicates no overlap or ignored overlap. 'i' indicates that one overlap
+    is inside the other"""
     ans = ''
     upper1_lt_lower2 = targ1.max_reverse_ind < targ2.min_forward_ind
     upper2_lt_lower1 = targ2.max_reverse_ind < targ1.min_forward_ind
     lower1_lt_lower2 = targ1.min_forward_ind < targ2.min_forward_ind
+    lower1_eq_lower2 = targ1.min_forward_ind == targ2.min_forward_ind
+    upper1_lt_upper2 = targ1.max_reverse_ind < targ2.max_reverse_ind
+    upper1_eq_upper2 = targ1.max_reverse_ind == targ2.max_reverse_ind
 
     # targ2 lies after without overlap
     if upper1_lt_lower2:
@@ -70,13 +74,19 @@ def any_overlap(targ1: TargetIndecies, targ2: TargetIndecies) -> str:
     if upper2_lt_lower1:
         return ''
 
-    # targ1 is below targ2, or targ2 is inside targ1
-    if lower1_lt_lower2:
+    # targ1 is below targ2.
+    if (lower1_lt_lower2 or lower1_eq_lower2) and \
+            (upper1_lt_upper2 or upper1_eq_upper2):
         ans = 'h'
 
-    # targ1 us above targ2, or targ1 is inside targ2
-    else:
+    # targ1 is above targ2.
+    elif (not lower1_lt_lower2 or lower1_eq_lower2)\
+            and (not upper1_lt_upper2 or upper1_eq_upper2):
         ans = 'l'
+
+    # One of the targets is inside the other.
+    else:
+        ans = 'i'
 
     ignore = targ1.overlap_ignore and targ2.overlap_ignore
 

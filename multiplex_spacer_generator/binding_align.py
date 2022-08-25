@@ -1,3 +1,4 @@
+import logging
 import os
 import timeit
 from pathlib import Path
@@ -12,8 +13,7 @@ import time
 from multiprocessing import Process, Manager, Queue
 import logging as lg
 
-logger = lg.RootLogger(level=0)
-logger.addHandler(lg.StreamHandler(stdout))
+logger = logging.getLogger('root')
 
 # Apple trees and goat cheese.
 BASE_TO_INT = {
@@ -196,6 +196,9 @@ class NumpyBindingAlign:
         align."""
         return self._spacer_sizes[:]
 
+    def __str__(self) -> str:
+        return str(self._spacer_sizes)
+
     def find_min_div(self) -> int:
         """Returns the lowest diversity value found in the  first
         <self._num_hetero> bases."""
@@ -281,7 +284,13 @@ def get_runtime(num_seqs: int, num_hetero: int, silent: bool = False) -> float:
     len_seqs = 20
     reps = 1000
     seqs = [gen_random_seq_str(len_seqs) for _ in range(num_seqs)]
-    spacer_sizes = [0 for _ in range(num_seqs)]
+    return sample_runtime(seqs, num_hetero, reps, silent)
+
+def sample_runtime(seqs: List[str], num_hetero: int, reps: int,
+                   silent: bool = False) -> float:
+    """Provides an estimate of the time required to compute the diversity in a
+    single NumpyBindingAlign"""
+    spacer_sizes = [0 for _ in range(len(seqs))]
 
     aln = NumpyBindingAlign(seqs, spacer_sizes, num_hetero)
 

@@ -329,7 +329,7 @@ class ParameterManager:
 def get_pm() -> ParameterManager:
     """Generates a parameter manager by parsing the readme in the directory."""
     dir_path = Path(os.path.dirname(__file__)).parent
-    read_me_path = dir_path / 'config_read_me.txt'
+    read_me_path = dir_path / 'component_run_files' / 'config_read_me.txt'
     with open(read_me_path, 'r') as file:
         return ParameterManager(file.readlines())
 

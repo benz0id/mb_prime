@@ -6,6 +6,7 @@ from test_files.multiplex_testing.test_find_binding_pairs import rand_seq
 
 configure_log_out('FindSpacerCombo')
 
+NUM_TO_SAMPLE = 5
 
 def test_thread_params() -> None:
     basic_fsc = FindSpacerCombo(60, 5, ['ATCG', 'GATC', 'CCCC'], 3, min_per_process=2)
@@ -17,6 +18,119 @@ def test_thread_params() -> None:
         (2, [0, 2, 1]),
         (2, [0, 1, 2])
     ]
+
+
+def test_get_max_spacer_combo() -> None:
+    seqs = [
+             'ATGCATGCATGC',
+             'CATGCATGCATGC',
+             'GCATGCATGCATGC',
+             'TGCATGCATGCATGC',
+             'ATGCATGCATGC',
+             'CATGCATGCATGC',
+             'GCATGCATGCATGC',
+             'TGCATGCATGCATGC'
+            ]
+
+    num_het = 12
+    initial_binding_align = NumpyBindingAlign(seqs, [5, 4] * (len(seqs) // 2), num_het)
+    num = 1000
+    out_queue = Queue()
+    max_score = compute_column_score([len(seqs), 0, 0, 0, 0], len(seqs))
+
+    get_max_spacer_combo(initial_binding_align, out_queue, num, max_score,
+                         False)
+    while not out_queue.empty():
+        data = out_queue.get()
+        if isinstance(data, list):
+            return
+    assert False
+
+
+def test_get_max_spacer_combo_max_no_return_best() -> None:
+    seqs = [
+             'ATGCATGCATGC',
+             'CATGCATGCATGC',
+             'GCATGCATGCATGC',
+             'TGCATGCATGCATGC',
+             'ATGCATGCATGC',
+             'CATGCATGCATGC',
+             'GCATGCATGCATGC',
+             'TGCATGCATGCATGC'
+            ]
+
+    num_het = 12
+    max_num_het = 8
+    initial_binding_align = NumpyBindingAlign(seqs, [5, 4] * (len(seqs) // 2), num_het)
+    num = 1000
+    out_queue = Queue()
+    max_score = compute_column_score([len(seqs), 0, 0, 0, 0], len(seqs))
+
+    get_max_spacer_combo(initial_binding_align, out_queue, num, max_score,
+                         False, max_num_het, False)
+
+    while not out_queue.empty():
+        data = out_queue.get()
+        if isinstance(data, list):
+            assert max(data) <= max_num_het
+            return
+
+
+def test_get_max_spacer_combo_return_best() -> None:
+    seqs = [
+             'ATGCATGCATGC',
+             'CATGCATGCATGC',
+             'GCATGCATGCATGC',
+             'TGCATGCATGCATGC',
+            ]
+
+    num_het = 12
+    max_num_het = 8
+    initial_binding_align = NumpyBindingAlign(seqs, [12, 12, 0, 0], num_het)
+    num = 2000
+    out_queue = Queue()
+    max_score = compute_column_score([len(seqs), 0, 0, 0, 0], len(seqs))
+
+    get_max_spacer_combo(initial_binding_align, out_queue, num, max_score,
+                         False, max_num_het, False)
+    while not out_queue.empty():
+        data = out_queue.get()
+        if isinstance(data, list):
+            assert max(data) <= max_num_het
+            print(data)
+            return
+        else:
+            print(data)
+    assert False
+
+
+def test_get_max_spacer_combo_random_sample() -> None:
+
+    for _ in range(NUM_TO_SAMPLE):
+
+        seqs = [str(gen_random_seq(12)) for _ in range(8)]
+
+        num_het = 12
+        max_num_het = 10
+        initial_binding_align = NumpyBindingAlign(seqs, [10] * (len(seqs) // 2)\
+                                                  + [0] * (len(seqs) // 2),
+                                                  num_het)
+        num = 100000
+        out_queue = Queue()
+        max_score = compute_column_score([len(seqs), 0, 0, 0, 0], len(seqs))
+
+        get_max_spacer_combo(initial_binding_align, out_queue, num,
+                                    max_score,
+                                    False, max_num_het, False)
+
+        while not out_queue.empty():
+            data = out_queue.get()
+            print(data)
+            if isinstance(data, list):
+                assert max(data) <= max_num_het
+                print(data)
+                continue
+        assert False
 
 
 def test_thread_params_upper() -> None:

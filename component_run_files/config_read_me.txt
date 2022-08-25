@@ -135,8 +135,8 @@ GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCTatagaggc
 # additional dimer structures into the primers. Here, we'll need the binding
 # sequences that you obtained from the previous program. 5'-3'
 
-*FORWARD_BINDING_SEQ = GCATGGATACTTCGTCTTCG
-*REVERSE_BINDING_SEQ = AGTTGCTCATGGGCTTACAC
+*FORWARD_BINDING_SEQ = #seq#
+*REVERSE_BINDING_SEQ = #seq#
 
 # You'll also need to specify the adapters you'd like to use. 5'-3'
 # iTru5_02_A
@@ -151,12 +151,12 @@ GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCTatagaggc
 # positioning of ROI not a consideration with NGI
 #
 
-*FORWARD_ADAPTER = AATGATACGGCGACCACCGAGA
-*REVERSE_ADAPTER = CAAGCAGAAGACGGCATACGAG
+*FORWARD_ADAPTER = #seq#
+*REVERSE_ADAPTER = #seq#
 
 # Below, enter the number of bases you'd like to ensure heterogeneity for.
 
-*HETEROGENEITY_REGION_LENGTH = 12
+*HETEROGENEITY_REGION_LENGTH = #int#
 
 # Finally, enter the location of the output fasta location.
 
@@ -165,12 +165,12 @@ GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCTatagaggc
 # By default, the program will select the shortest set of heterogeneity spacers
 # possible, you can prompt the program to display a list of these if you'd like.
 
-*SHOW_SPACER_MENU = False
+*SHOW_SPACER_MENU = True
 
 # This program is capable of multithreading to decrease runtime. Enter the
 # number of cores you'd like to use below.
 
-*NUM_CORES = 8
+*NUM_CORES = #int#
 
 # The program is also capable of increasing the number of heterogeneity spacers
 # sampled, and thus the probability of finding better primer. If this is really

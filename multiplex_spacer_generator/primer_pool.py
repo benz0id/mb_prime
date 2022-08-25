@@ -1,6 +1,13 @@
 from typing import List, Iterator
-import primer3
 from hetero_spacer_generator.primer_tools import MBPrimer
+from hetero_spacer_generator.sequence_tools import get_p3_adapter_float
+import primer3
+
+primer3_adapter = get_p3_adapter_float()
+calc_dimer = lambda a, b: primer3_adapter.calc_heterodimer_score(a, b)
+# lambda a, b: primer3.calcHeterodimer(a, b).dg
+# lambda a, b: primer3_adapter.calc_heterodimer_score(a, b) * -1
+
 
 
 def construct_bp_primers(fiveps: List[str], heteros: List[str],
@@ -23,7 +30,7 @@ def get_all_dgs(seqs: List[str]) -> List[float]:
     dgs = []
     for i, seq1 in enumerate(seqs):
         for seq2 in seqs[i:]:
-            dgs.append(primer3.calcHeterodimer(seq1, seq2).dg)
+            dgs.append(calc_dimer(seq1, seq2))
 
     return dgs
 
