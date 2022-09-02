@@ -11,10 +11,20 @@ CONFIG_PATH = Path(os.path.dirname(__file__)).parent.parent / 'configs'
 
 HEADER = ('from src.config_handling.formatting import *\n'
           'from pathlib import Path\n'
+          '\n')
+
+ADVANCED_OPTIONS = (
+          '# Advanced Options\n'
           '\n'
           'verbose = False\n'
           '\n'
-          'min_spacer_length = False\n')
+          'min_spacer_length = False\n'
+          '\n'
+          'num_repetitions = 1\n'
+          '\n'
+          'how_random = 3\n'
+          '\n'
+)
 
 AUTOFILL = False
 
@@ -99,8 +109,8 @@ def get_new_config() -> str:
                         ['Pair #' + str(i + 1) for i in range(num_pairs)])
             get_runtime_params(config_out)
 
-
-    
+    with open(config_out, 'w') as outfile:
+        outfile.write(ADVANCED_OPTIONS)
 
     print('Config file created.')
 

@@ -20,9 +20,6 @@ from src.seq_alignment_analyser.sequence_management import PrimerPartsManager, \
 
 log = logging.getLogger('root')
 
-RAND_SEL = False
-NUM_BEST_FOR_RAND = 2
-
 # What percent of binding sequences must be within melting temp range.
 RETRY_PERCENT = 25
 # How much to adjust the length of a binding seq by in order to reach some
@@ -118,7 +115,7 @@ class FindBindingPairs:
                  primer_params: PrimerParams, alignments_path: Path,
                  targ_mt: float, max_mt_deviance: float,
                  aln_type: str = 'fasta', do_prog_bars: bool = True,
-                 mode: str = RESTRICTED) -> None:
+                 mode: str = RESTRICTED, num_rand_to_choose_from: int = 1) -> None:
         """Contructs all required attributes and helpers using the given
         values."""
 
@@ -140,6 +137,7 @@ class FindBindingPairs:
         ))
 
         self._binding_lens = incl_to_range(primer_params.binding_region_len)
+        self.num_rand_to_choose_from = num_rand_to_choose_from
 
         self._show_prog_bar = do_prog_bars
         self._mode = mode
@@ -237,10 +235,11 @@ class FindBindingPairs:
         if not self._max_lens:
             log.info('Desired melting temp distribution met.')
 
-        if RAND_SEL:
+        if self.num_rand_to_choose_from > 1:
             log.info('Randomly selecting binding pair from the best '
-                     + str(NUM_BEST_FOR_RAND) + ' binding pairs.')
-            num_to_choose_from = min([100, len(self._bp_heap)])
+                     + str(self.num_rand_to_choose_from) + ' binding pairs.')
+            num_to_choose_from = min([self.num_rand_to_choose_from,
+                                      len(self._bp_heap)])
             return random.choice(self._bp_heap[:num_to_choose_from])
 
         max_cons = self._bp_heap[0].get_conservation_score()

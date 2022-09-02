@@ -26,6 +26,7 @@ from src.seq_alignment_analyser.sequence_management import BindingPair, rev_comp
 log = logging.getLogger('root')
 
 
+
 def get_secs_left(end_time: Union[float, int]) -> int:
     """Returns the number of seconds until <end_time>"""
     return int(end_time - time())
@@ -36,13 +37,19 @@ class RunController:
     Responsible for storing and executing high-level program functionality.
     """
 
+    num_reps: int
+    warn: bool
+
     def __init__(self) -> None:
         """Fetch a config file from the user and initialise attributes required
         to execute the run specified in that config."""
 
+        self.warn = True
+
         # Get config file.
         config_file_name = 'configs.' + get_config_file()
         self.config = __import__(config_file_name, fromlist=[''])
+        self.num_reps = self.config.num_repetitions
 
         # Logger config.
         self.prog_log = logging.getLogger('prog_log')
@@ -97,7 +104,7 @@ class RunController:
 
         self.potentially_too_long_primers_check()
 
-        best_binding_params = self.find_binding_regions()
+        best_binding_params = self._find_binding_regions()
 
         print('Binding Parameters:\n')
 
@@ -113,7 +120,7 @@ class RunController:
 
         self.potentially_too_long_primers_check()
 
-        best_binding_params = self.find_binding_regions()
+        best_binding_params = self._find_binding_regions()
 
         f_binding_seqs = [pair.get_f_seq() for pair in best_binding_params]
         r_binding_seqs = [pair.get_r_seq() for pair in best_binding_params]
@@ -210,6 +217,10 @@ class RunController:
         return f_combo, r_combo
 
     def potentially_too_long_primers_check(self) -> None:
+
+        if not self.warn:
+            return
+
         # Check length requirements.
         potentially_too_long_primer = potential_length_overflow(self.config.adapters,
                                                                 self.config.max_spacer_length,
@@ -225,7 +236,7 @@ class RunController:
             if not continue_running:
                 exit(0)
 
-    def find_binding_regions(self) -> List[BindingPair]:
+    def _find_binding_regions(self) -> List[BindingPair]:
         """Gets the binding regions using parameters specified in the config
         file."""
         # Assemble Primer Params
@@ -249,7 +260,8 @@ class RunController:
                                max_mt_deviance=self.config.max_mt_deviance,
                                aln_type=self.config.alignment_type,
                                do_prog_bars=False,
-                               mode=RESTRICTED)
+                               mode=RESTRICTED,
+                               num_rand_to_choose_from=self.config.how_random)
 
         best_binding_params = fbp.get_best_binding_pairs()
         best_binding_params.sort(key=lambda a: a.target_name)
@@ -291,19 +303,28 @@ class RunController:
 
 
 def main():
-    run_contol = RunController()
-    config_type = run_contol.get_config_type()
+    run_control = RunController()
+    config_type = run_control.get_config_type()
 
-    match config_type:
+    for r in range(run_control.num_reps):
+        if run_control.num_reps > 1:
+            msg = 'Beginning repetition #' + str(r + 1) + '.'
+            log.info(msg)
+            print(msg)
 
-        case 'full':
-            run_contol.full_run()
+        if r > 0:
+            run_control.warn = False
 
-        case 'hetero':
-            run_contol.get_heterogeneity_spacers()
+        match config_type:
 
-        case 'binding':
-            run_contol.find_binding_regions()
+            case 'full':
+                run_control.full_run()
+
+            case 'hetero':
+                run_control.get_heterogeneity_spacers()
+
+            case 'binding':
+                run_control.get_binding_regions()
 
 
 def binding_selection_str(binding_params: List[BindingPair]) -> str:
