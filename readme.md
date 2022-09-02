@@ -1,8 +1,7 @@
 # Overview 
 
 This program is intended to aid in the construction of primers for metabarcoding. Given some alignment and target sites on that alignment, the 
-program will select the most conserved<sup>*1</sup>, valid<sup>*2</sup> primers that amplify those sites. The program can additionally design heterogeneity spacers that
-introduce diversity into the first few bases in a read, as required by some sequencing technologies. When possible, the program will attempt to reduce the propensity of primers to form dimers.
+program will select the most conserved<sup>*1</sup>, valid<sup>*2</sup> primers that amplify those sites. The program can additionally design heterogeneity spacers that introduce diversity into the first few bases in a read, as required by some sequencing technologies. When possible, the program will attempt to reduce the propensity of primers to form dimers. This program can be used to design primer sets targetting a single locus, or for multiplexed amplification of multiple loci.
 
 
 1: The conservation of nucleotides closer to the 3' end are weighted exponentially higher, due to their role in
