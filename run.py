@@ -123,6 +123,10 @@ class RunController:
 
         best_binding_params = self._find_binding_regions()
 
+        print('Binding Parameters:\n')
+
+        print(binding_selection_str(best_binding_params))
+
         f_binding_seqs = [pair.get_f_seq() for pair in best_binding_params]
         r_binding_seqs = [pair.get_r_seq() for pair in best_binding_params]
         targ_names = [pair.target_name for pair in best_binding_params]
@@ -137,10 +141,6 @@ class RunController:
             get_secs_left(self.end_time))
 
         binding_set.add_targ_names(targ_names)
-
-        print('Binding Parameters:\n')
-
-        print(binding_selection_str(best_binding_params))
 
         print('Full Primer Sequences:\n')
 
@@ -187,7 +187,9 @@ class RunController:
                     'spacers. Be sure to alot a longer runtime when '
                     'searching for the min spacers.')
 
-            assert combo
+            if not combo:
+                raise RuntimeError('Failed to find a spacer combo matching the '
+                                   'given specifications.')
             return combo
 
         if self.config.hetero_region_len == self.config.max_spacer_length:
