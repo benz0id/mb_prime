@@ -200,9 +200,9 @@ class SeqPairParam(SimpleParameter):
         """Fetch an integer value from the user."""
         print(self._msg)
         self.forward = cli.prompt('Enter Forward Sequence 5\'-3\':',
-                                  self._validations)
+                                  self._validations).upper()
         self.reverse = cli.prompt('Enter Reverse Sequence 5\'-3\':',
-                                  self._validations)
+                                  self._validations).upper()
 
 
 class RangeParam(SimpleParameter):

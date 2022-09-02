@@ -11,7 +11,7 @@ from src.multiplex_spacer_generator.get_max_spacer_combo import \
     get_max_spacer_combo, NOTHING_FOUND_MSG
 import heapq
 
-TICK_SPEED = 100
+TICK_SPEED = 10
 MIN_PER_PROCESS = 1000
 MAX_BEFORE_RANDOM = 12 ** 8
 SHORT_TIME_THRESHOLD = 5 * 60

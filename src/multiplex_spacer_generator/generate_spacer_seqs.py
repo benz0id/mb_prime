@@ -25,7 +25,7 @@ NUM_ITER_BEFORE_CHECK = 2
 
 ALERT_EVERY = 100
 
-MIN_DG = -10000
+MIN_DG = -1000000
 
 
 def gen_heterogeneity_alignment(seqs: List[str], spacers: SpacerCombo) \

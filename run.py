@@ -23,33 +23,7 @@ from datetime import datetime
 
 from src.seq_alignment_analyser.sequence_management import BindingPair, rev_comp
 
-# Freeze support check. Avoids recursive program execution when multithreading.
-if __name__ == '__main__':
-    freeze_support()
-
-# Get config file.
-config_file_name = 'configs.' + get_config_file()
-config = __import__(config_file_name, fromlist=[''])
-
-# Logger config.
-prog_log = logging.getLogger('prog_log')
-prog_log.addHandler(logging.StreamHandler(sys.stdout))
-prog_log.setLevel(0)
-
 log = logging.getLogger('root')
-log.setLevel(0)
-dir_path = Path(os.path.dirname(__file__))
-now = datetime.now()
-dt_string = now.strftime("%b-%d-%Y %H:%M:%S")
-log_filename = config_file_name + ' ' + dt_string
-log.addHandler(logging.FileHandler(dir_path / 'logs' / log_filename))
-if config.verbose:
-    log.addHandler(logging.StreamHandler(sys.stdout))
-log.info("Starting...")
-
-# Runtime Management.
-start_time = time()
-end_time = int(time() + hms(*config.runtime_estimate))
 
 
 def get_secs_left(end_time: Union[float, int]) -> int:
@@ -59,28 +33,60 @@ def get_secs_left(end_time: Union[float, int]) -> int:
 
 class RunController:
     """
-
-
-
-
-
+    Responsible for storing and executing high-level program functionality.
     """
 
+    def __init__(self) -> None:
+        """Fetch a config file from the user and initialise attributes required
+        to execute the run specified in that config."""
+
+        # Get config file.
+        config_file_name = 'configs.' + get_config_file()
+        self.config = __import__(config_file_name, fromlist=[''])
+
+        # Logger config.
+        self.prog_log = logging.getLogger('prog_log')
+        self.prog_log.addHandler(logging.StreamHandler(sys.stdout))
+        self.prog_log.setLevel(0)
+
+        log = logging.getLogger('root')
+        log.setLevel(0)
+        dir_path = Path(os.path.dirname(__file__))
+        now = datetime.now()
+        dt_string = now.strftime("%b-%d-%Y %H:%M:%S")
+        log_filename = config_file_name + ' ' + dt_string
+        log.addHandler(logging.FileHandler(dir_path / 'logs' / log_filename))
+        if self.config.verbose:
+            log.addHandler(logging.StreamHandler(sys.stdout))
+        log.info("Starting...")
+
+        # Runtime Management.
+        self.start_time = time()
+        self.end_time = int(time() + hms(*self.config.runtime_estimate))
+
+    def get_config_type(self) -> str:
+        """Returns the config type of the user-selected config file."""
+        return self.config.config_type
+
     def get_heterogeneity_spacers(self) -> None:
-        f_binding_seqs = [pair.get_f_seq() for pair in ]
-        r_binding_seqs = [pair.get_r_seq() for pair in ]
-        targ_names = [pair.target_name for pair in ]
+
+        f_binding_seqs = [pair.forward for pair in self.config.binding_sequences]
+        r_binding_seqs = [pair.reverse for pair in self.config.binding_sequences]
+        targ_names = ['Pair #' + str(i + 1)
+                      for i in range(len(self.config.binding_sequences))]
 
         f_combo, r_combo = self._get_spacers(f_binding_seqs, r_binding_seqs)
 
-        f_5p = [adapter_pair[0] for adapter_pair in config.adapters]
-        r_5p = [adapter_pair[1] for adapter_pair in config.adapters]
+        f_5p = [adapter_pair[0] for adapter_pair in self.config.adapters]
+        r_5p = [adapter_pair[1] for adapter_pair in self.config.adapters]
 
         binding_set = self.get_heterogeneity_spacer_sequences(
             f_5p, f_binding_seqs, r_5p, r_binding_seqs, f_combo, r_combo,
-            get_secs_left(end_time))
+            get_secs_left(self.end_time))
 
         binding_set.add_targ_names(targ_names)
+
+        print(binding_set)
 
     def get_binding_regions(self) -> None:
         """
@@ -89,9 +95,9 @@ class RunController:
 
         """
 
-        potentially_too_long_primers_check()
+        self.potentially_too_long_primers_check()
 
-        best_binding_params = self._find_binding_regions()
+        best_binding_params = self.find_binding_regions()
 
         print('Binding Parameters:\n')
 
@@ -105,9 +111,9 @@ class RunController:
 
         """
 
-        potentially_too_long_primers_check()
+        self.potentially_too_long_primers_check()
 
-        best_binding_params = self._find_binding_regions()
+        best_binding_params = self.find_binding_regions()
 
         f_binding_seqs = [pair.get_f_seq() for pair in best_binding_params]
         r_binding_seqs = [pair.get_r_seq() for pair in best_binding_params]
@@ -115,12 +121,12 @@ class RunController:
 
         f_combo, r_combo = self._get_spacers(f_binding_seqs, r_binding_seqs)
 
-        f_5p = [adapter_pair[0] for adapter_pair in config.adapters]
-        r_5p = [adapter_pair[1] for adapter_pair in config.adapters]
+        f_5p = [adapter_pair[0] for adapter_pair in self.config.adapters]
+        r_5p = [adapter_pair[1] for adapter_pair in self.config.adapters]
 
         binding_set = self.get_heterogeneity_spacer_sequences(
             f_5p, f_binding_seqs, r_5p, r_binding_seqs, f_combo, r_combo,
-            get_secs_left(end_time))
+            get_secs_left(self.end_time))
 
         binding_set.add_targ_names(targ_names)
 
@@ -137,23 +143,23 @@ class RunController:
         """This function handles the case when a user wants to iteratively find the
         binding combo. If the user is fine with failing, a specific length can be
         specified."""
-        prog_log.info('Finding Heterogeneity Spacers...')
+        self.prog_log.info('Finding Heterogeneity Spacers...')
 
         def get_best(binding_seqs: List[str], alloted_time: int) -> List[int]:
             combo = []
             gb_end_time = time() + alloted_time
 
             success = True
-            max_spacer_size = config.max_spacer_length
+            max_spacer_size = self.config.max_spacer_length
             while success:
 
                 log.info('\n*** Trying to find spacers with max spacer size: ' +
                          str(max_spacer_size) + '.\n')
 
                 fsc = FindSpacerCombo(runtime=get_secs_left(gb_end_time),
-                                      max_threads=config.num_threads,
+                                      max_threads=self.config.num_threads,
                                       seqs=binding_seqs,
-                                      hetero_region_size=config.hetero_region_len,
+                                      hetero_region_size=self.config.hetero_region_len,
                                       max_spacer_size=max_spacer_size)
 
                 try:
@@ -176,20 +182,20 @@ class RunController:
             assert combo
             return combo
 
-        if not config.min_spacer_length:
-            f_fsc = FindSpacerCombo(runtime=get_secs_left(end_time) // 3,
-                                    max_threads=config.num_threads,
+        if not self.config.min_spacer_length:
+            f_fsc = FindSpacerCombo(runtime=get_secs_left(self.end_time) // 3,
+                                    max_threads=self.config.num_threads,
                                     seqs=f_binding_seqs,
-                                    hetero_region_size=config.hetero_region_len,
-                                    max_spacer_size=config.max_spacer_length)
+                                    hetero_region_size=self.config.hetero_region_len,
+                                    max_spacer_size=self.config.max_spacer_length)
 
             f_combo = f_fsc.run()
 
-            r_fsc = FindSpacerCombo(runtime=get_secs_left(end_time) // 2,
-                                    max_threads=config.num_threads,
+            r_fsc = FindSpacerCombo(runtime=get_secs_left(self.end_time) // 2,
+                                    max_threads=self.config.num_threads,
                                     seqs=r_binding_seqs,
-                                    hetero_region_size=config.hetero_region_len,
-                                    max_spacer_size=config.max_spacer_length)
+                                    hetero_region_size=self.config.hetero_region_len,
+                                    max_spacer_size=self.config.max_spacer_length)
 
             r_combo = r_fsc.run()
 
@@ -197,42 +203,58 @@ class RunController:
             # For both the reverse and forward spacer, continue decreasing max
             # spacer length until failure.
             f_combo, r_combo = \
-                get_best(f_binding_seqs, get_secs_left(end_time) // 3), \
-                get_best(r_binding_seqs, get_secs_left(end_time) // 2)
+                get_best(f_binding_seqs, get_secs_left(self.end_time) // 3), \
+                get_best(r_binding_seqs, get_secs_left(self.end_time) // 2)
 
-        complete_time_elapsed_msg(start_time)
+        complete_time_elapsed_msg(self.start_time)
         return f_combo, r_combo
 
-    def _find_binding_regions(self) -> List[BindingPair]:
+    def potentially_too_long_primers_check(self) -> None:
+        # Check length requirements.
+        potentially_too_long_primer = potential_length_overflow(self.config.adapters,
+                                                                self.config.max_spacer_length,
+                                                                self.config.binding_region_len)
+        if potentially_too_long_primer:
+            continue_running = cli.yes_no_prompt(
+                'This input may produce primers of length ' +
+                str(potentially_too_long_primer) +
+                ' which exceeds the 60 base pair limit as imposed by '
+                'primer3. In order to continue, primer structures will be  '
+                'truncated at their 5\' ends down to meet the  length criteria.'
+                ' Enter Y to continue.')
+            if not continue_running:
+                exit(0)
+
+    def find_binding_regions(self) -> List[BindingPair]:
         """Gets the binding regions using parameters specified in the config
         file."""
         # Assemble Primer Params
 
         primer_params = PrimerParams(
-            primer_primer_distance=config.primer_primer_distance,
-            primer_target_distance=config.primer_target_distance,
-            target_region_len=config.target_region_len,
-            binding_region_len=config.binding_region_len,
-            ideal_binding_size=config.ideal_binding_size,
-            max_binding_target_len=config.max_binding_target_len)
+            primer_primer_distance=self.config.primer_primer_distance,
+            primer_target_distance=self.config.primer_target_distance,
+            target_region_len=self.config.target_region_len,
+            binding_region_len=self.config.binding_region_len,
+            ideal_binding_size=self.config.ideal_binding_size,
+            max_binding_target_len=self.config.max_binding_target_len)
 
         # Find the best regions for primer to bind.
 
-        prog_log.info('Finding Binding Pairs...')
-        fbp = FindBindingPairs(target_sites=config.target_sites,
-                               adapters=config.adapters,
+        self.prog_log.info('Finding Binding Pairs...')
+        fbp = FindBindingPairs(target_sites=self.config.target_sites,
+                               adapters=self.config.adapters,
                                primer_params=primer_params,
-                               alignments_path=config.alignments_path,
-                               targ_mt=config.target_melting_temp,
-                               max_mt_deviance=config.max_mt_deviance,
-                               aln_type=config.alignment_type,
+                               alignments_path=self.config.alignments_path,
+                               targ_mt=self.config.target_melting_temp,
+                               max_mt_deviance=self.config.max_mt_deviance,
+                               aln_type=self.config.alignment_type,
                                do_prog_bars=False,
                                mode=RESTRICTED)
 
         best_binding_params = fbp.get_best_binding_pairs()
         best_binding_params.sort(key=lambda a: a.target_name)
 
-        complete_time_elapsed_msg(start_time)
+        complete_time_elapsed_msg(self.start_time)
 
         return best_binding_params
 
@@ -251,7 +273,7 @@ class RunController:
         # Average the worst half of structures to calculate the score for a set.
         num_structs_to_avg = len(f_5p) * len(r_5p) // 2
 
-        prog_log.info('Optimizing Heterogeneity Spacer Sequences...')
+        self.prog_log.info('Optimizing Heterogeneity Spacer Sequences...')
         binding_set = get_best_heterogeneity_spacer_seqs_threadable(
             f_5p=f_5p,
             f_binding=f_binding_seqs,
@@ -261,17 +283,18 @@ class RunController:
             r_spacers=r_spacer_combo,
             allowed_seconds=runtime,
             num_structs_to_avg=num_structs_to_avg,
-            num_threads=config.num_threads)
+            num_threads=self.config.num_threads)
 
-        complete_time_elapsed_msg(start_time)
+        complete_time_elapsed_msg(self.start_time)
 
         return binding_set
 
 
 def main():
     run_contol = RunController()
+    config_type = run_contol.get_config_type()
 
-    match config.config_type:
+    match config_type:
 
         case 'full':
             run_contol.full_run()
@@ -280,28 +303,7 @@ def main():
             run_contol.get_heterogeneity_spacers()
 
         case 'binding':
-            run_contol._find_binding_regions()
-
-
-
-
-
-
-def potentially_too_long_primers_check() -> None:
-    # Check length requirements.
-    potentially_too_long_primer = potential_length_overflow(config.adapters,
-                                                            config.max_spacer_length,
-                                                            config.binding_region_len)
-    if potentially_too_long_primer:
-        continue_running = cli.yes_no_prompt(
-            'This input may produce primers of length ' +
-            str(potentially_too_long_primer) +
-            ' which exceeds the 60 base pair limit as imposed by '
-            'primer3. In order to continue, primer structures will be  '
-            'truncated at their 5\' ends down to meet the  length criteria.'
-            ' Enter Y to continue.')
-        if not continue_running:
-            exit(0)
+            run_contol.find_binding_regions()
 
 
 def binding_selection_str(binding_params: List[BindingPair]) -> str:
@@ -338,4 +340,5 @@ def complete_time_elapsed_msg(start_time: float) -> None:
 
 
 if __name__ == '__main__':
+    freeze_support()
     main()

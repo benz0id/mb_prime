@@ -1,5 +1,5 @@
 import re
-from typing import List
+from typing import List, Tuple
 from src.config_handling import command_line_tools as cli, \
                                 input_validator as iv, parameters as param
 import sys
@@ -93,8 +93,10 @@ def get_new_config() -> str:
 
         case 'hetero':
 
-            max_len = get_binding_pairs(config_out)
+            max_len, num_pairs = get_binding_pairs(config_out)
             get_heterogeneity_params(config_out, max_len)
+            get_5p_seqs(config_out, num_pairs,
+                        ['Pair #' + str(i + 1) for i in range(num_pairs)])
             get_runtime_params(config_out)
 
 
@@ -107,7 +109,7 @@ def get_new_config() -> str:
 
 
 
-def get_binding_pairs(config_out: Path) -> int:
+def get_binding_pairs(config_out: Path) -> Tuple[int, int]:
     # Prompt user for binding sequences.
 
     cli.print_title('Binding Sequences')
@@ -124,7 +126,7 @@ def get_binding_pairs(config_out: Path) -> int:
     max_size = 0
 
     for i in range(num_pairs.data):
-        seq_name = 'sequence #' + str( i + 1)
+        seq_name = 'Pair #' + str( i + 1)
         msg = ''.join(['Enter ', seq_name, '.'])
         binding_pair = param.SeqPairParam(seq_name, msg, [])
         binding_pairs.append(binding_pair)
@@ -139,7 +141,7 @@ def get_binding_pairs(config_out: Path) -> int:
         outfile.write(param.format_as_pylist(binding_pairs,
                                              'binding_sequences') + '\n\n')
 
-    return max_size
+    return max_size, num_pairs.data
 
 
 def get_runtime_params(config_out: Path) -> None:
