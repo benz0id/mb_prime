@@ -306,25 +306,33 @@ def main():
     run_control = RunController()
     config_type = run_control.get_config_type()
 
-    for r in range(run_control.num_reps):
-        if run_control.num_reps > 1:
-            msg = 'Beginning repetition #' + str(r + 1) + '.'
-            log.info(msg)
-            print(msg)
+    try:
 
-        if r > 0:
-            run_control.warn = False
+        for r in range(run_control.num_reps):
+            if run_control.num_reps > 1:
+                msg = 'Beginning repetition #' + str(r + 1) + '.'
+                log.info(msg)
+                print(msg)
 
-        match config_type:
+            if r > 0:
+                run_control.warn = False
 
-            case 'full':
-                run_control.full_run()
+            match config_type:
 
-            case 'hetero':
-                run_control.get_heterogeneity_spacers()
+                case 'full':
+                    run_control.full_run()
 
-            case 'binding':
-                run_control.get_binding_regions()
+                case 'hetero':
+                    run_control.get_heterogeneity_spacers()
+
+                case 'binding':
+                    run_control.get_binding_regions()
+    except Exception as e:
+        if run_control.num_reps == 1:
+            raise e
+        else:
+            log.info(str(e.__traceback__))
+            cli.eprint(str(e.__traceback__))
 
 
 def binding_selection_str(binding_params: List[BindingPair]) -> str:
