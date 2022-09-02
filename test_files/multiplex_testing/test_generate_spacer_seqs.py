@@ -1,6 +1,4 @@
-import pytest as pt
-
-from multiplex_spacer_generator.find_best_spacer_combo import FindSpacerCombo
+from src.multiplex_spacer_generator.find_best_spacer_combo import FindSpacerCombo
 from multiplex_spacer_generator.generate_spacer_seqs import *
 import random
 from multiprocessing import Queue

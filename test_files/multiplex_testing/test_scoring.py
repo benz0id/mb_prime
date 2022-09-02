@@ -1,9 +1,7 @@
 import primer3
 import pytest
 
-from config_handling.formatting import AdapterPair, TargetRegionInfo
-from seq_alignment_analyser.scoring import *
-from seq_alignment_analyser.sequence_management import *
+from src.config_handling.formatting import SeqPairParam, TargetRegionInfo
 from test_files.fixtures_and_helpers import get_msa
 
 
@@ -18,10 +16,10 @@ def simple_ppm() -> PrimerPartsManager:
     targ4 = TargetRegionInfo('targ4', 'alex_test_align', [450])
 
     tt5s = [
-        AdapterPair('ATATATATAATTCC', 'ATATATATAATTCC'),
-        AdapterPair('ATATATATAATTCC', 'ATATATATAATTCC'),
-        AdapterPair('ATATATATAATTCC', 'ATATATATAATTCC'),
-        AdapterPair('ATATATATAATTCC', 'ATATATATAATTCC')
+        SeqPairParam('ATATATATAATTCC', 'ATATATATAATTCC'),
+        SeqPairParam('ATATATATAATTCC', 'ATATATATAATTCC'),
+        SeqPairParam('ATATATATAATTCC', 'ATATATATAATTCC'),
+        SeqPairParam('ATATATATAATTCC', 'ATATATATAATTCC')
     ]
 
     targs = [targ1, targ2, targ3, targ4]
@@ -100,7 +98,7 @@ def test_eval_adapter_dimer_functionality(simple_ppm, simple_bps,
     bp1, *c = simple_bps
     dimer_scores = simple_sbp.get_5p_seqs_dgs(bp1)
     assert len(dimer_scores) == 16
-    simple_ppm._fivep_seqs[-1] = AdapterPair(simple_ppm._fivep_seqs[-1][0],
+    simple_ppm._fivep_seqs[-1] = SeqPairParam(simple_ppm._fivep_seqs[-1][0],
                                              'C' * 20)
     bp1.r_seq = 'G' * 20
     dimer_scores = simple_sbp.get_5p_seqs_dgs(bp1)

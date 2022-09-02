@@ -1,9 +1,6 @@
-import sys
 import random
 import pytest as pt
 
-from config_handling.formatting import *
-from seq_alignment_analyser.find_binding_pairs import *
 from test_files.fixtures_and_helpers import ALIGNMENTS_PATH, configure_log_out, \
     get_msa
 

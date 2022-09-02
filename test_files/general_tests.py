@@ -1,13 +1,9 @@
-from hetero_spacer_generator.hetero_spacer_generator import *
-from hetero_spacer_generator.primer_tools import *
-from hetero_spacer_generator.sequence_tools import *
 import random
-import hetero_spacer_generator.spacer_generator.random_spacer_generator as rsg
-from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
+import src.hetero_spacer_generator.spacer_generator.random_spacer_generator as rsg
+from src.hetero_spacer_generator.spacer_generator.random_spacer_generator import \
     gen_heterogeneity_spacers_rand, \
     get_potential_bases, \
     get_vacant_bases
-from hetero_spacer_generator.spacer_generator.spacer_filters import *
 import fixtures_and_helpers as fah
 
 

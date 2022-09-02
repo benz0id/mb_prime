@@ -1,5 +1,5 @@
 from test_files.fixtures_and_helpers import configure_log_out, gen_random_seq
-from multiplex_spacer_generator.find_best_spacer_combo import *
+from src.multiplex_spacer_generator.find_best_spacer_combo import *
 import random
 
 from test_files.multiplex_testing.test_find_binding_pairs import rand_seq

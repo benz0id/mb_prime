@@ -1,4 +1,3 @@
-from hetero_spacer_generator.sequence_tools import *
 from test_files.multiplex_testing.test_generate_spacer_seqs import rand_seq
 import random
 

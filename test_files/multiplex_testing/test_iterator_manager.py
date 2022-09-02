@@ -1,12 +1,9 @@
 import collections
 import random
-from typing import Any
 import logging
 import pytest as pt
-from seq_alignment_analyser.iterator_manager import *
 import datetime
-from test_files.fixtures_and_helpers import get_msa, ALIGNMENTS_PATH, \
-MULTIPLEX_TESTING_PATH
+from test_files.fixtures_and_helpers import get_msa, MULTIPLEX_TESTING_PATH
 
 handler = logging.FileHandler(MULTIPLEX_TESTING_PATH /
                               'IteratorManagerTest.log')

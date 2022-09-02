@@ -1,12 +1,9 @@
 import os
 
-from hetero_spacer_generator.primer_tools import hms
+from src.hetero_spacer_generator.primer_tools import hms
 from test_files.fixtures_and_helpers import configure_log_out, gen_random_seq, \
-    TEST_PATH, \
-    TEST_OUTPUT_PATH, add_stdout_handler
-from multiplex_spacer_generator.find_best_spacer_combo import *
-import pathlib
-import pytest
+    add_stdout_handler
+from src.multiplex_spacer_generator.find_best_spacer_combo import *
 
 add_stdout_handler()
 

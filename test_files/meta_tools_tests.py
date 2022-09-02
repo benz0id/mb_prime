@@ -1,5 +1,5 @@
 from meta_tools.analysis_tools import RIGOUR, SETNUM, SETSIZE
-from meta_tools.compute_results import *
+from src.meta_tools.compute_results import *
 
 
 def get_complex_params_files() -> Tuple[Dict[str, Tuple[int, int]], List[str]]:

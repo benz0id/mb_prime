@@ -4,16 +4,20 @@ from typing import List, Tuple, TypeVar
 import random
 import logging
 import datetime
-from hetero_spacer_generator.spacer_generator.hetero_spacer_generator import SpacerAlignmentGen
-from hetero_spacer_generator.primer_tools import MBPrimerBuilder
-from hetero_spacer_generator.spacer_generator.random_spacer_generator import \
+
+from src.hetero_spacer_generator.get_random_seqs import gen_sequence_array
+from src.hetero_spacer_generator.primer_tools import MBPrimerBuilder
+from src.hetero_spacer_generator.spacer_generator.hetero_spacer_generator import \
+    SpacerAlignmentGen
+from src.hetero_spacer_generator.spacer_generator.random_spacer_generator import \
     RandomSpacerGen
-import hetero_spacer_generator.spacer_generator.random_spacer_generator as rsg
+import src.hetero_spacer_generator.spacer_generator.random_spacer_generator as rsg
 from Bio.Seq import Seq
-from hetero_spacer_generator.spacer_generator.spacer_filters import SpacerSet
 import os
 
-from seq_alignment_analyser.align import MSA
+from src.hetero_spacer_generator.spacer_generator.spacer_filters import \
+    SpacerSet
+from src.seq_alignment_analyser.align import MSA
 
 TEST_PATH = Path(os.path.dirname(__file__))
 TEST_OBJECTS_PATH = TEST_PATH / 'test_objects'
@@ -99,10 +103,10 @@ def ensure_valid_spacers(incomplete_primer: MBPrimerBuilder or Seq,
     """Ensures that the spacers produced by the given spacers will be valid. If
     """
     if type(incomplete_primer) == MBPrimerBuilder:
-        seq_arr = rsg.gen_sequence_array(incomplete_primer.get_binding_seq(),
+        seq_arr = gen_sequence_array(incomplete_primer.get_binding_seq(),
                                          spacers)
     else:
-        seq_arr = rsg.gen_sequence_array(incomplete_primer,
+        seq_arr = gen_sequence_array(incomplete_primer,
                                          spacers)
     return ensure_hetero_seq_arr(seq_arr, num_hetero)
 

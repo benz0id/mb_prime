@@ -1,7 +1,5 @@
 import pytest
 
-from meta_tools.analysis_tools import Heterodimer, Homodimer
-from meta_tools.evaluate.result_types import DimerManager
 from fixtures_and_helpers import *
 
 ALL_DMS = [

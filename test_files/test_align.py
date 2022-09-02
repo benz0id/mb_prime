@@ -1,5 +1,4 @@
 import pytest
-from seq_alignment_analyser.align import *
 from test_files.fixtures_and_helpers import ALIGNMENTS_PATH, get_msa
 import os
 

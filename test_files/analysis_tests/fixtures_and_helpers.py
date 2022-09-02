@@ -1,5 +1,5 @@
 from meta_tools.analysis_tools import Heterodimer, Homodimer
-from meta_tools.evaluate.result_types import DimerManager
+from src.meta_tools.evaluate.result_types import DimerManager
 import random
 
 # The attributes of a standard dimer manager

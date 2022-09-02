@@ -1,11 +1,8 @@
-import pytest as pt
-
-from multiplex_spacer_generator.find_best_spacer_combo import FindSpacerCombo
+from src.multiplex_spacer_generator.find_best_spacer_combo import FindSpacerCombo
 from multiplex_spacer_generator.generate_spacer_seqs import *
 import random
-from multiprocessing import Queue
 from test_files.fixtures_and_helpers import add_stdout_handler, \
-    standard_pytest_run, configure_log_out
+    configure_log_out
 from test_files.multiplex_testing.test_generate_spacer_seqs import rand_seq
 
 NUM_THREADS = 8
