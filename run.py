@@ -189,7 +189,7 @@ class RunController:
             assert combo
             return combo
 
-        if not self.config.min_spacer_length:
+        if self.config.hetero_region_len == self.config.max_spacer_length:
             f_fsc = FindSpacerCombo(runtime=get_secs_left(self.end_time) // 3,
                                     max_threads=self.config.num_threads,
                                     seqs=f_binding_seqs,

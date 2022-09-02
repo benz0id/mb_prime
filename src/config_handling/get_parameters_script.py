@@ -18,11 +18,9 @@ ADVANCED_OPTIONS = (
           '\n'
           'verbose = False\n'
           '\n'
-          'min_spacer_length = False\n'
-          '\n'
           'num_repetitions = 1\n'
           '\n'
-          'how_random = 3\n'
+          'how_random = 1\n'
           '\n'
 )
 

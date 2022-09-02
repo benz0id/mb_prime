@@ -1,5 +1,34 @@
+# Overview 
 
-Complete Primer Structure:
+This program is intended to aid in the construction of primers for metabarcoding. Given some alignment and target sites on that alignment, the 
+program will select the most conserved<sup>*1</sup>, valid<sup>*2</sup> primers that amplify those sites. The program can additionally design heterogeneity spacers that
+introduce diversity into the first few bases in a read, as required by some sequencing technologies. When possible, the program will attempt to reduce the propensity of primers to form dimers.
+
+
+1: The conservation of nucleotides closer to the 3' end are weighted exponentially higher, due to their role in
+replication initiation.
+
+2: Primer are considered valid iff they have a GC clamp present (in the two most 3' residues), are within the melting temperature range specified by the user, and do 
+not overlap with other targets on the same alignment (to avoid alternate structure formation during amplification.
+
+# Installation
+
+Written for python 3.10
+
+To install the required packages, run the following.
+> pip install pipreqs
+> 
+> pip install -r requirements.txt
+
+
+# Usage
+In order to start the program, execute:
+
+>python3 run.py
+
+This will allow you to create a config file and execute it.
+
+# Primer Structure & Definitions
 
 5' - Adapter - Index - SequencingPrimer - HeterogeneitySpacer - Binding Sequence - 3'
 
@@ -15,19 +44,28 @@ Heterogeneity spacer - Inserts diversity into the first few nucleotides in each 
 
 Binding sequence - Binds to regions flanking the target region in order to enable amplification of the target.
 
-Glossary:
+## Glossary
 
 Target region - The portion of the target organism's genome to be amplified.
+
 Binding Region - The regions of the target organism's genome to be bound directly by the primers.
 
+# Parameters
 
-Basic Parameters:
+The program will prompt you to specify some parameters depending on the type of run you'd like to perform.
+These will be placed into a config file. Direct modification of config files is encouraged. 
+
+## Basic Parameters
 
 alignments_path - Path to the file containing the alignments on which the desired targets lie.
 
 alignment_type - The filetype of the alignments in <alignments_path>.
 
-Binding Region Selection Parameters
+config_type - The type of config file the user would like to create. Decides which parameters are necessary and what portions of the program to use.
+
+## Binding Region Selection Parameters
+
+targets - Locations of the target sites.
 
 target_region_len - The maximum and minimum lengths (inclusive) of any given target region.
 
@@ -45,13 +83,25 @@ max_mt_deviance - The maximum difference in melting temperatures between any two
 
 target_melting_temp - The target melting temp about, about which 
 
+## Heterogeneity Spacer Generation Parameters
+
+binding_sequences - The binding sequences to incorporate into the final primers, and for which heterogeneity spacers will be designed.
+
 hetero_region_len - The number of first-read bases that must have perfect heterogeneity.
 
-max_spacer_length - The maximum length of
+max_spacer_length - The maximum length of any heterogeneity spacer. Making this too short will often result in failure.
 
-runtime_estimate = TimeSpec(hours=0, minutes=2, seconds=0)
+## Runtime Parameters
 
-num_threads = 8
+runtime_estimate - The estimated runtime of the program. The program will automatically reduce sample sizes in order to meet stringent time requirements.
 
-Usage:
+num_threads - The number of child processes to spawn during any parallelizable stage of the program.
 
+## Advanced Options
+
+how_random - By default, the program will always choose the best option according to its own criteria. If the single best option is not entirely satisfactory, 
+increasing this parameter will cause the program to randomly select one of the <how_random> best available solutions at several stages in the program.
+
+num_repetitions - The number of times to run the program. Useful when paired with higher values of how_random generating multiple sets.
+
+verbose - Whether to print the log file directly to console during execution.

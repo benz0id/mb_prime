@@ -19,8 +19,6 @@ verbose = False
 
 # =============================================================================
 
-min_spacer_length = True
-
 
 alignments_path = Path(os.path.dirname(__file__)).parent / 'alignments'
 
