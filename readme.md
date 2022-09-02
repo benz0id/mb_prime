@@ -63,6 +63,9 @@ alignment_type - The filetype of the alignments in <alignments_path>.
 
 config_type - The type of config file the user would like to create. Decides which parameters are necessary and what portions of the program to use.
 
+adapters - The sequences to be placed 5' of the heterogeneity spacer. If using a 2-step PCR protocol, these may just contain the sequencing primer. If using a 1-step 
+PCR protocol these may contain the flow cell adapter, index, and sequencing primer.
+
 ## Binding Region Selection Parameters
 
 targets - Locations of the target sites.
