@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import traceback
 from multiprocessing import freeze_support
 from pathlib import Path
 from typing import List, Tuple, Union
@@ -306,16 +307,17 @@ def main():
     run_control = RunController()
     config_type = run_control.get_config_type()
 
-    try:
 
-        for r in range(run_control.num_reps):
-            if run_control.num_reps > 1:
-                msg = 'Beginning repetition #' + str(r + 1) + '.'
-                log.info(msg)
-                print(msg)
+    for r in range(run_control.num_reps):
+        if run_control.num_reps > 1:
+            msg = 'Beginning repetition #' + str(r + 1) + '.'
+            log.info(msg)
+            print(msg)
 
-            if r > 0:
-                run_control.warn = False
+        if r > 0:
+            run_control.warn = False
+
+        try:
 
             match config_type:
 
@@ -327,12 +329,13 @@ def main():
 
                 case 'binding':
                     run_control.get_binding_regions()
-    except Exception as e:
-        if run_control.num_reps == 1:
-            raise e
-        else:
-            log.info(str(e.__traceback__))
-            cli.eprint(str(e.__traceback__))
+
+        except Exception as e:
+            if run_control.num_reps > 1:
+                tb = traceback.format_exc()
+                print(tb)
+            else:
+                raise e
 
 
 def binding_selection_str(binding_params: List[BindingPair]) -> str:
