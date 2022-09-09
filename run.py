@@ -184,7 +184,7 @@ class RunController:
             if get_secs_left(gb_end_time) < 0:
                 raise RuntimeError(
                     'The program ran out of time to find the best '
-                    'spacers. Be sure to alot a longer runtime when '
+                    'spacers. Be sure to allot a longer runtime when '
                     'searching for the min spacers.')
 
             if not combo:
@@ -255,7 +255,7 @@ class RunController:
         # Find the best regions for primer to bind.
 
         self.prog_log.info('Finding Binding Pairs...')
-        fbp = FindBindingPairs(target_sites=self.config.target_sites,
+        fbp = FindBindingPairs(target_sites=self.config.targets,
                                adapters=self.config.adapters,
                                primer_params=primer_params,
                                alignments_path=self.config.alignments_path,

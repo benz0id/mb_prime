@@ -24,7 +24,7 @@ ADVANCED_OPTIONS = (
           '\n'
 )
 
-AUTOFILL = False
+AUTOFILL = True
 
 
 def get_config_file() -> str:
@@ -107,7 +107,7 @@ def get_new_config() -> str:
                         ['Pair #' + str(i + 1) for i in range(num_pairs)])
             get_runtime_params(config_out)
 
-    with open(config_out, 'w') as outfile:
+    with open(config_out, 'a') as outfile:
         outfile.write(ADVANCED_OPTIONS)
 
     print('Config file created.')
@@ -407,7 +407,7 @@ if __name__ == '__main__':
 
     # The lines to be written to the console automatically.
     to_write = [
-        'dummy_config',
+        'final_demo',
         'Y',
         '1',
         'DIR',
