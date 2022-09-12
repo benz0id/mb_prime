@@ -19,7 +19,6 @@ verbose = False
 
 # =============================================================================
 
-
 alignments_path = Path(os.path.dirname(__file__)).parent / 'alignments'
 
 alignment_type = 'fasta'
