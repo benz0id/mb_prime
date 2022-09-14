@@ -43,7 +43,7 @@ primer_target_distance = 5
 
 num_threads = 8
 
-target_sites = [
+targets = [
 	TargetRegionInfo(name='targ_1', aln_filename='example_alignment.fas', sites=(247, 249)),
 	TargetRegionInfo(name='targ_2', aln_filename='example_alignment.fas', sites=(364, 372)),
 	TargetRegionInfo(name='targ_3', aln_filename='example_alignment.fas', sites=(781, 783)),

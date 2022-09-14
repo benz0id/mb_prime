@@ -45,7 +45,7 @@ class RunController:
         """Fetch a config file from the user and initialise attributes required
         to execute the run specified in that config."""
 
-        self.warn = True
+        self.warn = not '-s' in sys.argv
 
         # Get config file.
         config_file_name = 'configs.' + get_config_file()

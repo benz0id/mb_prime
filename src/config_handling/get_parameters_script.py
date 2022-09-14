@@ -30,6 +30,18 @@ AUTOFILL = True
 def get_config_file() -> str:
     """Lets the user select an existing config, or creates a new one."""
     configs = [str(filename) for filename in os.listdir(CONFIG_PATH)]
+
+    if '-c' in sys.argv:
+        c_ind = sys.argv.index('-c')
+        val_ind = c_ind + 1
+
+        if val_ind >= len(sys.argv):
+            raise ValueError('Improper usage.')
+        val = sys.argv[val_ind]
+        if val not in configs:
+            raise ValueError('Improper usage.')
+        return val[:-3]
+
     if '__pycache__' in configs:
         configs.remove('__pycache__')
     configs = [config[:-3] for config in configs]

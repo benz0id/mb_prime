@@ -69,7 +69,7 @@ def menu(options: List[str], title: str, instructions: str) -> int:
 
 
 def yes_no_prompt(msg: str) -> bool:
-    """Asks the user whether they'd like to ign"""
+    """Asks the user whether for a yes/no response."""
     valid = Validation(lambda s: s.strip() in 'YN', '[Y/N]')
     s = prompt(msg + ' [Y/N]', [valid])
     if s.strip() == 'Y':
