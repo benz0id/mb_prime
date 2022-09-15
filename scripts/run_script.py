@@ -34,7 +34,7 @@ def run_cmd():
 
     print('Executing: ', cmd)
 
-    # os.system(cmd)
+    os.system(cmd)
 
 
 for total_h_len in range(8, 12):
