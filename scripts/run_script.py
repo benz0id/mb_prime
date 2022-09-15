@@ -1,6 +1,6 @@
 import os
 
-config = 'alex_config.py'
+config = 'example_config.py'
 how_random = 10
 num_repetitions = 50
 runtime_estimate = '0 5 0'

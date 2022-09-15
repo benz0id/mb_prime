@@ -1,4 +1,5 @@
 import argparse
+from typing import Tuple
 
 
 def get_cla_namespace() -> argparse.Namespace:
@@ -18,7 +19,7 @@ def get_cla_namespace() -> argparse.Namespace:
     parser.add_argument('--num_repetitions', type=int,
                         help='number of repetitions to perform.')
 
-    parser.add_argument('--runtime_estimate', type=tuple, nargs=3,
+    parser.add_argument('--runtime_estimate', type=int, nargs=3,
                         metavar=('HOURS', 'MINUTES', 'SECONDS'),
                         help='estimated runtime of the program.')
 
