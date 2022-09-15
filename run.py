@@ -57,7 +57,7 @@ class RunController:
             config = get_config_file()
 
         if config not in get_config_names():
-            raise ValueError(config + 'is not a valid config file.')
+            raise ValueError(config + ' is not a valid config file.')
 
         # Get config file.
         config_file_name = 'configs.' + config
