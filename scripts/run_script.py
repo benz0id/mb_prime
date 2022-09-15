@@ -15,8 +15,6 @@ def run_cmd():
     cmd = [
             'python3.10 ', 'run.py',
             '--config', config,
-            '--how_random',
-            '--config', config,
             '--how_random', how_random,
             '--num_repetitions', num_repetitions,
             '--runtime_estimate', runtime_estimate,
@@ -26,7 +24,7 @@ def run_cmd():
             '--hetero_region_length', hetero_region_length,
             '--num_threads', num_threads,
             '--max_spacer_length', max_spacer_length,
-            '--out_filepath', out_filepath,
+            '--out_filepath', out_filepath
     ]
 
     cmd = [str(s) for s in cmd]
