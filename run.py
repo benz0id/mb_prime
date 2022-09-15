@@ -6,9 +6,10 @@ from multiprocessing import freeze_support
 from pathlib import Path
 from typing import List, Tuple, Union
 
-from src.config_handling import command_line_tools as cli
+from src.config_handling import command_line_tools as cli, parse_args
 from src.config_handling.formatting import PrimerParams
-from src.config_handling.get_parameters_script import get_config_file
+from src.config_handling.get_parameters_script import get_config_file, \
+    get_config_names
 from src.config_handling.length_compatability import potential_length_overflow
 from src.hetero_spacer_generator.primer_tools import hms
 from src.multiplex_spacer_generator.binding_align import get_time_string
@@ -24,8 +25,12 @@ from datetime import datetime
 
 from src.seq_alignment_analyser.sequence_management import BindingPair, rev_comp
 
-log = logging.getLogger('root')
+DIV = '\n' + '=' * 80 + '\n'
 
+# Logger config.
+log = logging.getLogger('root')
+prog_log = logging.Logger('prog_log', level=0)
+prog_log.addHandler(logging.StreamHandler(sys.stdout))
 
 
 def get_secs_left(end_time: Union[float, int]) -> int:
@@ -39,26 +44,38 @@ class RunController:
     """
 
     num_reps: int
+    rep_number: int
     warn: bool
 
     def __init__(self) -> None:
         """Fetch a config file from the user and initialise attributes required
         to execute the run specified in that config."""
+        ns = parse_args.get_cla_namespace()
+        if 'config' in ns:
+            config = ns.config[:-3]
+        else:
+            config = get_config_file()
 
-        self.warn = not '-s' in sys.argv
+        if config not in get_config_names():
+            raise ValueError(config + 'is not a valid config file.')
 
         # Get config file.
-        config_file_name = 'configs.' + get_config_file()
+        config_file_name = 'configs.' + config
         self.config = __import__(config_file_name, fromlist=[''])
+        parse_args.get_modified_config(self.config)
         self.num_reps = self.config.num_repetitions
+        self.rep_number = 0
 
-        # Logger config.
-        self.prog_log = logging.getLogger('prog_log')
-        self.prog_log.addHandler(logging.StreamHandler(sys.stdout))
-        self.prog_log.setLevel(0)
+        # Test that outfile parent directory exists.
+        if self.config.out_filepath and \
+                not Path(self.config.out_filepath).parent.exists():
+            raise ValueError(str(Path(self.config.out_filepath).parent) +
+                             ' does not exist.')
 
-        log = logging.getLogger('root')
-        log.setLevel(0)
+        # Logger Configuration
+        if self.config.silent:
+            prog_log.setLevel(40)
+
         dir_path = Path(os.path.dirname(__file__))
         now = datetime.now()
         dt_string = now.strftime("%b-%d-%Y %H:%M:%S")
@@ -75,6 +92,12 @@ class RunController:
     def get_config_type(self) -> str:
         """Returns the config type of the user-selected config file."""
         return self.config.config_type
+
+    def write_to_outfile(self, s: str) -> None:
+        """Writes <s> to the outfile if it exists."""
+        if self.config.out_filepath:
+            with open(self.config.out_filepath, 'a') as outfile:
+                outfile.write(s)
 
     def get_heterogeneity_spacers(self) -> None:
 
@@ -94,7 +117,11 @@ class RunController:
 
         binding_set.add_targ_names(targ_names)
 
-        print(binding_set)
+        self.write_to_outfile(DIV + self.get_rep_str() + str(binding_set))
+        prog_log.info(binding_set)
+
+    def get_rep_str(self) -> str:
+        return "Run #" + str(self.rep_number) + '\n'
 
     def get_binding_regions(self) -> None:
         """
@@ -107,9 +134,13 @@ class RunController:
 
         best_binding_params = self._find_binding_regions()
 
-        print('Binding Parameters:\n')
+        s = 'Binding Parameters:\n\n'
 
-        print(binding_selection_str(best_binding_params))
+        s += binding_selection_str(best_binding_params)
+
+        prog_log.info(s)
+
+        self.write_to_outfile(DIV + self.get_rep_str() + s)
 
     def full_run(self) -> None:
         """
@@ -123,9 +154,11 @@ class RunController:
 
         best_binding_params = self._find_binding_regions()
 
-        print('Binding Parameters:\n')
+        binding_param_str = 'Binding Parameters:\n'
 
-        print(binding_selection_str(best_binding_params))
+        binding_param_str += binding_selection_str(best_binding_params)
+
+        prog_log.info(binding_param_str)
 
         f_binding_seqs = [pair.get_f_seq() for pair in best_binding_params]
         r_binding_seqs = [pair.get_r_seq() for pair in best_binding_params]
@@ -142,16 +175,19 @@ class RunController:
 
         binding_set.add_targ_names(targ_names)
 
-        print('Full Primer Sequences:\n')
+        primers_str = 'Full Primer Sequences:\n\n' + str(binding_set) + '\n'
 
-        print(binding_set)
+        prog_log.info(primers_str)
+
+        self.write_to_outfile(DIV + self.get_rep_str() + binding_param_str +
+                              primers_str)
 
     def _get_spacers(self, f_binding_seqs: List[str],
                      r_binding_seqs: List[str]) -> Tuple[List[int], List[int]]:
         """This function handles the case when a user wants to iteratively find the
         binding combo. If the user is fine with failing, a specific length can be
         specified."""
-        self.prog_log.info('Finding Heterogeneity Spacers...')
+        prog_log.info('Finding Heterogeneity Spacers...')
 
         def get_best(binding_seqs: List[str], alloted_time: int) -> List[int]:
             combo = []
@@ -221,7 +257,7 @@ class RunController:
 
     def potentially_too_long_primers_check(self) -> None:
 
-        if not self.warn:
+        if self.config.silent or self.config.no_warn:
             return
 
         # Check length requirements.
@@ -254,7 +290,7 @@ class RunController:
 
         # Find the best regions for primer to bind.
 
-        self.prog_log.info('Finding Binding Pairs...')
+        prog_log.info('Finding Binding Pairs...')
         fbp = FindBindingPairs(target_sites=self.config.targets,
                                adapters=self.config.adapters,
                                primer_params=primer_params,
@@ -288,7 +324,7 @@ class RunController:
         # Average the worst half of structures to calculate the score for a set.
         num_structs_to_avg = len(f_5p) * len(r_5p) // 2
 
-        self.prog_log.info('Optimizing Heterogeneity Spacer Sequences...')
+        prog_log.info('Optimizing Heterogeneity Spacer Sequences...')
         binding_set = get_best_heterogeneity_spacer_seqs_threadable(
             f_5p=f_5p,
             f_binding=f_binding_seqs,
@@ -309,15 +345,21 @@ def main():
     run_control = RunController()
     config_type = run_control.get_config_type()
 
+    num_failures = 0
+    num_successes = 0
+    err_str = ''
 
+    prog_log.info_rep_number = run_control.num_reps > 1
     for r in range(run_control.num_reps):
-        if run_control.num_reps > 1:
+        if prog_log.info_rep_number:
             msg = 'Beginning repetition #' + str(r + 1) + '.'
             log.info(msg)
-            print(msg)
+            prog_log.info(msg)
+
+        run_control.rep_number += 1
 
         if r > 0:
-            run_control.warn = False
+            run_control.config.silent = True
 
         try:
 
@@ -331,13 +373,23 @@ def main():
 
                 case 'binding':
                     run_control.get_binding_regions()
+            num_successes += 1
 
         except Exception as e:
             if run_control.num_reps > 1:
                 tb = traceback.format_exc()
-                print(tb)
+                prog_log.info(tb)
+
+                num_failures += 1
+                err_str += str(e) + '\n'
             else:
                 raise e
+        if num_successes == run_control.config.max_successes:
+            break
+
+    if run_control.num_reps > 1:
+        run_control.write_to_outfile('Num Failures = ' + str(num_failures) +
+                                     '\n' + 'Failures: \n' + err_str)
 
 
 def binding_selection_str(binding_params: List[BindingPair]) -> str:
@@ -370,7 +422,7 @@ def complete_time_elapsed_msg(start_time: float) -> None:
     """Prints a message alerting the user to the time elapsed since
     <start_time>."""
     ta = int(time() - start_time)
-    print('Complete. Time elapsed: ', get_time_string(ta))
+    prog_log.info('Complete. Time elapsed: \n' + get_time_string(ta))
 
 
 if __name__ == '__main__':

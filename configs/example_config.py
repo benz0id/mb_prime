@@ -1,7 +1,12 @@
 import os
-
 from src.config_handling.formatting import *
 from pathlib import Path
+import inspect
+from typing import Any
+
+def overwrite_var(name: str, val: Any) -> None:
+    f = inspect.currentframe()
+    f.f_globals[name] = val
 
 # These are the parameters that I'd recommend playing with.
 
@@ -11,7 +16,9 @@ config_type = 'binding'
 
 num_repetitions = 5
 
-max_spacer_length = 10
+max_spacer_length = 8
+
+hetero_region_len = 10
 
 runtime_estimate = TimeSpec(hours=0, minutes=10, seconds=0)
 
@@ -30,8 +37,6 @@ binding_region_len = InclRange(start=15, stop=20)
 ideal_binding_size = 20
 
 max_binding_target_len = 126
-
-hetero_region_len = 12
 
 target_melting_temp = 55.0
 
@@ -59,3 +64,4 @@ adapters = [
 	SeqPairParam('ACACTCTTTCCCTACACGACGCTCTTCCGATCT'[slc], 'GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT'[slc])
 	]
 
+out_filepath = ''

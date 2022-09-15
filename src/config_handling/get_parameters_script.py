@@ -11,40 +11,49 @@ CONFIG_PATH = Path(os.path.dirname(__file__)).parent.parent / 'configs'
 
 HEADER = ('from src.config_handling.formatting import *\n'
           'from pathlib import Path\n'
-          '\n')
+          'from typing import Any\n'
+          'import inspect\n'
+          '\n'
+          )
+
+TAILER = (
+          '# == Functional Stuff - Feel Free to Ignore =='
+          'def overwrite_var(name: str, val: Any) -> None:\n'
+          '    f = inspect.currentframe()\n'
+          '    f.f_globals[name] = val\n'
+          '\n'
+)
 
 ADVANCED_OPTIONS = (
           '# Advanced Options\n'
-          '\n'
-          'verbose = False\n'
           '\n'
           'num_repetitions = 1\n'
           '\n'
           'how_random = 1\n'
           '\n'
+          'out_filepath = \'\'\n'
+          '\n'
+          'silent = False\n'
+          '\n'
+          'verbose = True\n'
+          '\n'
+
 )
 
 AUTOFILL = True
 
-
-def get_config_file() -> str:
-    """Lets the user select an existing config, or creates a new one."""
+def get_config_names() -> List[str]:
+    """Returns all valid existing config filenames."""
     configs = [str(filename) for filename in os.listdir(CONFIG_PATH)]
-
-    if '-c' in sys.argv:
-        c_ind = sys.argv.index('-c')
-        val_ind = c_ind + 1
-
-        if val_ind >= len(sys.argv):
-            raise ValueError('Improper usage.')
-        val = sys.argv[val_ind]
-        if val not in configs:
-            raise ValueError('Improper usage.')
-        return val[:-3]
 
     if '__pycache__' in configs:
         configs.remove('__pycache__')
     configs = [config[:-3] for config in configs]
+    return configs
+
+def get_config_file() -> str:
+    """Lets the user select an existing config, or creates a new one."""
+    configs = get_config_names()
     configs.insert(0, 'Create New Config')
     sel = cli.menu(
         configs, 'Config File Select', 'Enter the number corresponding to '
@@ -121,6 +130,7 @@ def get_new_config() -> str:
 
     with open(config_out, 'a') as outfile:
         outfile.write(ADVANCED_OPTIONS)
+        outfile.write(TAILER)
 
     print('Config file created.')
 
