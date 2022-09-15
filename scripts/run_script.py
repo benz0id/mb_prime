@@ -23,7 +23,7 @@ def run_cmd():
         '--runtime_estimate', runtime_estimate,
         # '--verbose',
         # '--no_warn',
-        # '--silent',
+        '--silent',
         '--hetero_region_length', hetero_region_length,
         '--num_threads', num_threads,
         '--max_spacer_length', max_spacer_length,
