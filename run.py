@@ -387,9 +387,8 @@ def main():
         if num_successes == run_control.config.max_successes:
             break
 
-    if run_control.num_reps > 1:
-        run_control.write_to_outfile('Num Failures = ' + str(num_failures) +
-                                     '\n' + 'Failures: \n' + err_str)
+    run_control.write_to_outfile('Num Failures = ' + str(num_failures) +
+                                 '\n' + 'Failures: \n' + err_str)
 
 
 def binding_selection_str(binding_params: List[BindingPair]) -> str:
