@@ -89,14 +89,27 @@ class RunController:
         self.start_time = time()
         self.end_time = int(time() + hms(*self.config.runtime_estimate))
 
+        self.write_out_title()
+
     def get_config_type(self) -> str:
         """Returns the config type of the user-selected config file."""
         return self.config.config_type
 
+    def write_out_title(self) -> None:
+        """Writes a title to the outfile."""
+        title = '\n' + '=' * 30 + datetime.now().strftime("%b-%d-%Y %H:%M:%S") \
+                + '=' * 30 + '\n\n'
+        self.write_to_outfile(title)
+
     def write_to_outfile(self, s: str) -> None:
         """Writes <s> to the outfile if it exists."""
         if self.config.out_filepath:
-            with open(self.config.out_filepath, 'a') as outfile:
+            if Path(self.config.out_filepath).exists():
+                mode = 'a'
+            else:
+                mode = 'w'
+
+            with open(self.config.out_filepath, mode) as outfile:
                 outfile.write(s)
 
     def get_heterogeneity_spacers(self) -> None:
@@ -342,27 +355,34 @@ class RunController:
 
 
 def main():
+
+    # Configure Run Controller
     run_control = RunController()
     config_type = run_control.get_config_type()
 
+    # If doing multiple replicates, store progress.
     num_failures = 0
     num_successes = 0
     err_str = ''
 
+    # Execute specified number of replicates.
     prog_log.info_rep_number = run_control.num_reps > 1
     for r in range(run_control.num_reps):
+        # Log repetition info.
         if prog_log.info_rep_number:
             msg = 'Beginning repetition #' + str(r + 1) + '.'
             log.info(msg)
             prog_log.info(msg)
 
         run_control.rep_number += 1
-
+        # Don't ask for user for input in later replicates.
         if r > 0:
-            run_control.config.silent = True
+            run_control.config.no_warn = True
 
+        # Attempt a run. If an error is raised, return it to the user but
+        # continue the run.
         try:
-
+            # Execute appropriate run type.
             match config_type:
 
                 case 'full':
@@ -383,6 +403,11 @@ def main():
                 num_failures += 1
                 err_str += str(e) + '\n'
             else:
+                num_failures += 1
+                err_str += str(e) + '\n'
+                run_control.write_to_outfile(
+                    'Num Failures = ' + str(num_failures) +
+                    '\n' + 'Failures: \n' + err_str)
                 raise e
         if num_successes == run_control.config.max_successes:
             break
