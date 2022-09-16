@@ -5,7 +5,8 @@ config = sys.argv[1]
 out_file = sys.argv[2]
 
 how_random = 10
-num_repetitions = 50
+num_repetitions = 500
+max_successes = 10
 runtime_estimate = '0 5 0'
 num_threads = 32
 
@@ -22,12 +23,13 @@ def run_cmd():
         '--num_repetitions', num_repetitions,
         '--runtime_estimate', runtime_estimate,
         # '--verbose',
-        # '--no_warn',
-        '--silent',
+        '--no_warn',
+        # '--silent',
         '--hetero_region_length', hetero_region_length,
         '--num_threads', num_threads,
         '--max_spacer_length', max_spacer_length,
-        '--out_filepath', out_filepath
+        '--out_filepath', out_filepath,
+        '--max_successes', max_successes
     ]
 
     cmd = [str(s) for s in cmd]
