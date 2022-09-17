@@ -91,6 +91,12 @@ class RunController:
 
         self.write_out_title()
 
+    def reset_time_params(self) -> None:
+        """Sets the runtime restrictions."""
+        # Runtime Management.
+        self.start_time = time()
+        self.end_time = int(time() + hms(*self.config.runtime_estimate))
+
     def get_config_type(self) -> str:
         """Returns the config type of the user-selected config file."""
         return self.config.config_type
@@ -368,6 +374,7 @@ def main():
     # Execute specified number of replicates.
     prog_log.info_rep_number = run_control.num_reps > 1
     for r in range(run_control.num_reps):
+        run_control.reset_time_params()
         # Log repetition info.
         if prog_log.info_rep_number:
             msg = 'Beginning repetition #' + str(r + 1) + '.'
