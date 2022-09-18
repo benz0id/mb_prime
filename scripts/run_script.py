@@ -8,7 +8,7 @@ how_random = 10
 num_repetitions = 1
 max_successes = 10
 runtime_estimate = '0 5 0'
-num_threads = 8
+num_threads = 32
 
 out_filepath = ''
 hetero_region_length = 0
