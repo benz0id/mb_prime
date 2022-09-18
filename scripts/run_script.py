@@ -41,7 +41,7 @@ def run_cmd():
 
 
 for total_h_len in range(8, 12):
-    for max_het_spacer in range(6, 10):
+    for max_het_spacer in range(6, total_h_len):
         hetero_region_length = total_h_len
         max_spacer_length = max_het_spacer
 
