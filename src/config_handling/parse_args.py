@@ -42,7 +42,7 @@ def get_cla_namespace() -> argparse.Namespace:
                         help='maximum length of any spacer. Setting too short'
                              'will result in failure.')
 
-    parser.add_argument('--out_filepath', type=str,
+    parser.add_argument('--out_filepath', type=str, default='',
                         help='filepath for result output')
 
     parser.add_argument('--max_successes', type=int, default=-1,
