@@ -9,7 +9,6 @@ num_repetitions = 1
 max_successes = 10
 runtime_estimate = '0 5 0'
 num_threads = 32
-
 out_filepath = ''
 hetero_region_length = 0
 max_spacer_length = 0

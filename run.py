@@ -51,9 +51,9 @@ class RunController:
         """Fetch a config file from the user and initialise attributes required
         to execute the run specified in that config."""
         ns = parse_args.get_cla_namespace()
-        if 'config' in ns:
+        try:
             config = ns.config[:-3]
-        else:
+        except TypeError:
             config = get_config_file()
 
         if config not in get_config_names():
