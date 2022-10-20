@@ -17,7 +17,7 @@ HEADER = ('from src.config_handling.formatting import *\n'
           )
 
 TAILER = (
-          '# == Functional Stuff - Feel Free to Ignore =='
+          '# == Functional Stuff - Feel Free to Ignore ==\n'
           'def overwrite_var(name: str, val: Any) -> None:\n'
           '    f = inspect.currentframe()\n'
           '    f.f_globals[name] = val\n'
