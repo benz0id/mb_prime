@@ -29,8 +29,8 @@ DIV = '\n' + '=' * 80 + '\n'
 
 # Logger config.
 log = logging.getLogger('root')
+log.setLevel(0)
 prog_log = logging.Logger('prog_log', level=0)
-prog_log.setLevel(0)
 prog_log.addHandler(logging.StreamHandler(sys.stdout))
 
 
