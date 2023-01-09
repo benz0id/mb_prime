@@ -38,13 +38,17 @@ def run_cmd():
 
     os.system(cmd)
 
+def main():
+    for
+        for total_h_len in range(8, 12):
+            for max_het_spacer in range(6, total_h_len):
+                hetero_region_length = total_h_len
+                max_spacer_length = max_het_spacer
 
-for total_h_len in range(8, 12):
-    for max_het_spacer in range(6, total_h_len):
-        hetero_region_length = total_h_len
-        max_spacer_length = max_het_spacer
+                out_filepath = out_file + '/' + str(max_spacer_length) + '_' + \
+                               str(hetero_region_length) + '.txt'
 
-        out_filepath = out_file + '/' + str(max_spacer_length) + '_' + \
-                       str(hetero_region_length) + '.txt'
+                run_cmd()
 
-        run_cmd()
+if __name__ == '__main__':
+    main()

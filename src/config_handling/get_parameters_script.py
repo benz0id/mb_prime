@@ -40,7 +40,7 @@ ADVANCED_OPTIONS = (
 
 )
 
-AUTOFILL = True
+AUTOFILL = False
 
 def get_config_names() -> List[str]:
     """Returns all valid existing config filenames."""
@@ -61,16 +61,19 @@ def get_config_file() -> str:
                                        'use, or enter 1 to create a new '
                                        'config.')
     if sel == 0:
-        return get_new_config()
+        return get_new_config(AUTOFILL)
     else:
         return configs[sel]
 
 
-def get_new_config() -> str:
+def get_new_config(auto=False) -> str:
     """Prompts the user for the parameters required to run the program. Prints
     these parameters as a series of strings to config file and interpreted as
     python variables. Returns path of selected config file."""
     # Collecting basic configuration variables.
+    if auto:
+        return run_autofill()
+
     cli.print_title('Basic Parameters')
 
     existing_configs = os.listdir(CONFIG_PATH)
@@ -135,8 +138,6 @@ def get_new_config() -> str:
     print('Config file created.')
 
     return config_name.data
-
-
 
 
 def get_binding_pairs(config_out: Path) -> Tuple[int, int]:
@@ -399,15 +400,8 @@ def get_5p_seqs(config_out: Path, num_pairs: int, names: List[str]) -> None:
     with open(config_out, 'a') as outfile:
         outfile.write(param.format_as_pylist(adapters, 'adapters') + '\n\n')
 
-
-
-# Input some predetermined set of strings.
-if __name__ == '__main__':
-    if not AUTOFILL:
-        get_new_config()
-        quit()
-
-
+def run_autofill() -> str:
+    """Automatically generate a config file."""
     class DummyIO:
         i: int
         lines: List[str]
@@ -435,7 +429,7 @@ if __name__ == '__main__':
         'DIR',
         'fasta',
         '0, 150',
-        '15, 25',
+        '0, 25',
         '20',
         '126',
         '45',
@@ -493,13 +487,23 @@ if __name__ == '__main__':
         '0:5:0'
     ]
     dummio = DummyIO(to_write)
-    get_new_config()
+    return get_new_config()
+
+
+# Input some predetermined set of strings.
+if __name__ == '__main__':
+    if not AUTOFILL:
+        get_new_config()
+        quit()
+
+
+    run_autofill()
 
 
 """[
         'new_config',
         'Y',
-        str(ALIGNMENTS_PATH),
+        DIR,
         'fasta',
         '10, 150',
         '15, 25',
